@@ -1,0 +1,122 @@
+syntax = "v1"
+
+info (
+	title:  "Admin API"
+	desc:   "管理员接口"
+	author: "xfdhm"
+)
+
+type (
+	//=========================
+	// Event
+	//=========================
+	CreateEventReq {
+		Title       string `json:"title"`
+		Description string `json:"description,optional"`
+		Location    string `json:"location"`
+		CoverImage  string `json:"coverImage,optional"`
+		StartTime   string `json:"startTime"`
+		EndTime     string `json:"endTime"`
+	}
+	CreateEventResp  {}
+	UpdateEventReq {
+		EventID     uint   `json:"eventId"`
+		Title       string `json:"title,optional"`
+		Description string `json:"description,optional"`
+		Location    string `json:"location,optional"`
+		CoverImage  string `json:"coverImage,optional"`
+		StartTime   string `json:"startTime,optional"`
+		EndTime     string `json:"endTime,optional"`
+	}
+	UpdateEventResp  {}
+	UpdateEventStatusReq {
+		EventID uint   `json:"eventId"`
+		Status  string `json:"status"`
+	}
+	UpdateEventStatusResp  {}
+	//=========================
+	// Show
+	//=========================
+	CreateShowReq {
+		EventID   uint   `json:"eventId"`
+		Name      string `json:"name"`
+		ShowTime  string `json:"showTime"`
+		EndTime   string `json:"endTime"`
+		SortOrder int    `json:"sortOrder,optional"`
+	}
+	CreateShowResp  {}
+	UpdateShowReq {
+		ShowID    uint   `json:"showId"`
+		Name      string `json:"name,optional"`
+		ShowTime  string `json:"showTime,optional"`
+		EndTime   string `json:"endTime,optional"`
+		Status    string `json:"status,optional"`
+		SortOrder int    `json:"sortOrder,optional"`
+	}
+	UpdateShowResp  {}
+	UpdateShowStatusReq {
+		ShowID uint   `json:"showId"`
+		Status string `json:"status"`
+	}
+	UpdateShowStatusResp  {}
+	//=========================
+	// TicketType
+	//=========================
+	CreateTicketTypeReq {
+		EventID    uint    `json:"eventId"`
+		ShowID     uint    `json:"showId"`
+		Name       string  `json:"name"`
+		Price      float64 `json:"price"`
+		Stock      int     `json:"stock"`
+		MaxPerUser int     `json:"maxPerUser"`
+		SortOrder  int     `json:"sortOrder,optional"`
+	}
+	CreateTicketTypeResp  {}
+	UpdateTicketTypeReq {
+		TicketTypeID uint    `json:"ticketTypeId"`
+		Name         string  `json:"name,optional"`
+		Price        float64 `json:"price,optional"`
+		Stock        int     `json:"stock,optional"`
+		MaxPerUser   int     `json:"maxPerUser,optional"`
+		SortOrder    int     `json:"sortOrder,optional"`
+	}
+	UpdateTicketTypeResp  {}
+	UpdateTicketTypeStatusReq {
+		TicketTypeID uint   `json:"ticketTypeId"`
+		Status       string `json:"status"`
+	}
+	UpdateTicketTypeStatusResp  {}
+)
+
+@server (
+	prefix:     /admin
+	jwt:        Auth
+	middleware: Admin
+	group:      admin
+)
+service admin-api {
+	// Event
+	@handler CreateEvent
+	post /event (CreateEventReq) returns (CreateEventResp)
+
+	@handler UpdateEvent
+	put /event (UpdateEventReq) returns (UpdateEventResp)
+
+	@handler UpdateEventStatus
+	put /event/status (UpdateEventStatusReq) returns (UpdateEventStatusResp)
+
+	// Show
+	@handler CreateShow
+	post /show (CreateShowReq) returns (CreateShowResp)
+
+	@handler UpdateShow
+	put /show (UpdateShowReq) returns (UpdateShowResp)
+
+	// TicketType
+	@handler CreateTicketType
+	post /ticket-type (CreateTicketTypeReq) returns (CreateTicketTypeResp)
+
+	@handler UpdateTicketType
+	put /ticket-type (UpdateTicketTypeReq) returns (UpdateTicketTypeResp)
+}
+

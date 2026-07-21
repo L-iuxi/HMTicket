@@ -1,0 +1,22 @@
+Name: admin-api
+Host: 0.0.0.0
+Port: 8889
+Mysql:
+  DSN: "root:123456@tcp(127.0.0.1:3306)/ticket?charset=utf8mb4&parseTime=True&loc=Local"
+  MaxOpenConns: 20
+  MaxIdleConns: 10
+  ConnMaxLifetime: 300
+
+Redis:
+  Addr: "127.0.0.1:6379"
+  Password: ""
+  DB: 0
+  
+Auth:
+  AccessSecret: "ticket-secret-key"
+  AccessExpire: 604800
+EventRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: event.rpc
