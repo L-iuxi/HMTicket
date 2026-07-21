@@ -1,0 +1,64 @@
+syntax = "v1"
+
+info (
+	title:  "user service"
+	desc:   "user api"
+	author: "xfdhm"
+)
+
+type (
+	RegisterReq {
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Email    string `json:"email"`
+		Phone    string `json:"phone,optional"`
+		Gender   uint8  `json:"gender,optional"`
+	}
+	RegisterResp {
+		Message string `json:"message"`
+	}
+	LoginReq {
+		Account string `json:"account"`
+		Password string `json:"password"`
+	}
+	LoginResp {
+		Token string `json:"token"`
+	}
+	UserProfileResp {
+		UserId	string `json:"userid"`
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Phone    string `json:"phone"`
+		Gender   uint8  `json:"gender"`
+		Role     string `json:"role"`
+	}
+	UpdateProfileReq {
+		Email    string `json:"email,optional"`
+		Phone    string `json:"phone,optional"`
+		Gender   uint8  `json:"gender,optional"`
+		Username string `json:"username,optional"`
+		OldPassword string `json:"oldPassword,optional"`
+		NewPassword string `json:"newPassword,optional"`
+	}
+	CommonResp {
+		Message string `json:"message"`
+	}
+)
+
+@server (
+	prefix: /api/user
+)
+service user-api {
+	@handler Register
+	post /register (RegisterReq) returns (RegisterResp)
+
+	@handler Login
+	post /login (LoginReq) returns (LoginResp)
+
+	@handler Profile
+	get /profile returns (UserProfileResp)
+
+	@handler UpdateProfile
+	put /profile (UpdateProfileReq) returns (CommonResp)
+}
+
