@@ -1,0 +1,11 @@
+Name: inventory-api
+Host: 0.0.0.0
+Port: 8891
+InventoryRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: inventory.rpc
+AdminAuth:
+  AccessSecret: "ticket-secret-key"
+  AccessExpire: 604800

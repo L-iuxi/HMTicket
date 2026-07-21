@@ -1,0 +1,52 @@
+//包括了和内存相关的服务，包括Lua脚本原子扣内存，lua回滚库存，redisstream或者mq，mysql扣后内存同步月
+syntax = "v1"
+
+info (
+	title:  "Inventory API"
+	desc:   "库存服务"
+	author: "xfdhm"
+)
+
+type (
+	// 查询库存
+	GetStockReq {
+		TicketTypeID uint64 `path:"ticketTypeId"`
+	}
+	GetStockResp {
+		Success      bool   `json:"success"`
+		Message      string `json:"message"`
+		TicketTypeID uint64 `json:"ticketTypeId"`
+		Stock        int32  `json:"stock"`
+	}
+	// 管理员修改库存
+	UpdateStockReq {
+		TicketTypeID uint64 `json:"ticketTypeId"`
+		Stock        int32  `json:"stock"`
+	}
+	UpdateStockResp {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}
+)
+
+@server (
+	group:  inventory
+	prefix: /api/v1/inventory
+)
+service ticket-api {
+	// 查询库存
+	@handler GetStock
+	get /stock/:ticketTypeId (GetStockReq) returns (GetStockResp)
+}
+
+@server (
+	jwt:    AdminAuth
+	group:  admin/inventory
+	prefix: /api/v1/admin
+)
+service inventory-api {
+	// 修改库存（管理员）
+	@handler UpdateStock
+	put /inventory/stock (UpdateStockReq) returns (UpdateStockResp)
+}
+
