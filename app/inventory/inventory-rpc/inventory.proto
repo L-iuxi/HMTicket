@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package inventory;
+
+option go_package = "./inventory";
+
+// 通用返回
+message CommonResp {
+  bool success = 1;
+  string message = 2;
+}
+
+// 初始化库存（创建票种后调用）
+message InitStockReq {
+  uint64 ticketTypeId = 1;
+  int32 stock = 2;
+}
+
+// 查询库存
+message GetStockReq {
+  uint64 ticketTypeId = 1;
+}
+
+message GetStockResp {
+  bool success = 1;
+  string message = 2;
+
+  uint64 ticketTypeId = 3;
+  int32 stock = 4;
+}
+
+// 扣库存
+message DeductStockReq {
+  uint64 ticketTypeId = 1;
+  int32 quantity = 2;
+}
+
+message DeductStockResp {
+  bool success = 1;
+  string message = 2;
+
+  int32 remainStock = 3; // 剩余库存
+}
+
+// 回滚库存
+message ReleaseStockReq {
+  uint64 ticketTypeId = 1;
+  int32 quantity = 2;
+}
+
+message ReleaseStockResp {
+  bool success = 1;
+  string message = 2;
+
+  int32 remainStock = 3;
+}
+
+// 管理员修改库存
+message UpdateStockReq {
+  uint64 ticketTypeId = 1;
+  int32 stock = 2;
+}
+
+service Inventory {
+
+  // 初始化库存
+  rpc InitStock(InitStockReq) returns (CommonResp);
+
+  // 查询库存
+  rpc GetStock(GetStockReq) returns (GetStockResp);
+
+  // 扣库存
+  rpc DeductStock(DeductStockReq) returns (DeductStockResp);
+
+  // 回滚库存
+  rpc ReleaseStock(ReleaseStockReq) returns (ReleaseStockResp);
+
+  // 修改库存
+  rpc UpdateStock(UpdateStockReq) returns (CommonResp);
+}
