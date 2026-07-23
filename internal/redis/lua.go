@@ -17,3 +17,12 @@ redis.call("DECRBY", KEYS[1], quantity)
 
 return 1
 `
+
+// Lua释放锁
+const UnlockLua = `
+	if redis.call("GET",KEYS[1]) == ARGV[1] then
+		return redis.call("DEL",KEYS[1])
+	else 
+		return 0
+	end
+`
