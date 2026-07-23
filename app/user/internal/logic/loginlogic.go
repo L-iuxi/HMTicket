@@ -9,7 +9,7 @@ import (
 
 	"Ticket/app/user/internal/svc"
 	"Ticket/app/user/internal/types"
-	"Ticket/internal/pkg/db"
+	db "Ticket/app/user/model"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"golang.org/x/crypto/bcrypt"

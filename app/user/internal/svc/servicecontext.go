@@ -3,6 +3,7 @@ package svc
 import (
 	"Ticket/app/user/internal/config"
 	"Ticket/app/user/internal/middleware"
+	"Ticket/app/user/model"
 	"Ticket/internal/pkg/db"
 	"Ticket/internal/pkg/jwt"
 
@@ -29,6 +30,8 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	if err != nil {
 		panic(err)
 	}
+
+	db.Migrate(conn, &model.User{})
 
 	jwtTool := jwt.NewJWT(c.Auth.AccessSecret)
 

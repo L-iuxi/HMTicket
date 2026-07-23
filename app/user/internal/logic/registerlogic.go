@@ -7,7 +7,7 @@ import (
 
 	"Ticket/app/user/internal/svc"
 	"Ticket/app/user/internal/types"
-	"Ticket/internal/pkg/db"
+	db "Ticket/app/user/model"
 	"Ticket/internal/pkg/util"
 
 	"github.com/zeromicro/go-zero/core/logx"
