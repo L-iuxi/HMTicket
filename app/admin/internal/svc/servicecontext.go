@@ -38,6 +38,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	if err != nil {
 		panic(err)
 	}
+
 	//连接redis
 	redisClient, err := redis.InitRedis(
 		c.Redis.Addr,
