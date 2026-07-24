@@ -5,11 +5,11 @@ package logic
 
 import (
 	"context"
-	"errors"
 
 	"Ticket/app/user/internal/svc"
 	"Ticket/app/user/internal/types"
 	db "Ticket/app/user/model"
+	"Ticket/common/xerr"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"golang.org/x/crypto/bcrypt"
@@ -34,12 +34,12 @@ func (l *LoginLogic) Login(req *types.LoginReq) (resp *types.LoginResp, err erro
 
 	user, err := l.FindUserByAccount(req.Account)
 	if err != nil {
-		return nil, errors.New("账号不存在")
+		return nil, xerr.NewErrCode(xerr.USER_NOT_FOUND)
 	}
 	// 比较hash之后的密码
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
 	if err != nil {
-		return nil, errors.New("密码错误")
+		return nil, xerr.NewErrCode(xerr.WRONG_PASSWORD)
 	}
 
 	//生成token

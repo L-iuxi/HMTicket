@@ -5,12 +5,12 @@ package logic
 
 import (
 	"context"
-	"errors"
 
 	"Ticket/app/user/internal/middleware"
 	"Ticket/app/user/internal/svc"
 	"Ticket/app/user/internal/types"
 	db "Ticket/app/user/model"
+	"Ticket/common/xerr"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"golang.org/x/crypto/bcrypt"
@@ -35,7 +35,7 @@ func (l *UpdateProfileLogic) UpdateProfile(req *types.UpdateProfileReq) (resp *t
 	userID := middleware.GetUserID(l.ctx)
 
 	if userID == 0 {
-		return nil, errors.New("未登录")
+		return nil, xerr.NewErrCode(xerr.USER_NOT_LOGIN)
 	}
 	// 用户是否存在
 	var user db.User
@@ -45,7 +45,7 @@ func (l *UpdateProfileLogic) UpdateProfile(req *types.UpdateProfileReq) (resp *t
 		Error
 
 	if err != nil {
-		return nil, errors.New("用户不存在")
+		return nil, xerr.NewErrCode(xerr.USER_NOT_FOUND)
 	}
 	// 传入的修改邮箱地址是否重复
 	if req.Email != "" && req.Email != user.Email {
@@ -63,7 +63,7 @@ func (l *UpdateProfileLogic) UpdateProfile(req *types.UpdateProfileReq) (resp *t
 		}
 
 		if count > 0 {
-			return nil, errors.New("邮箱已被使用")
+			return nil, xerr.NewErrCode(xerr.EMAIL_ALREADY_USED)
 		}
 	}
 	// 手机号是否重复
@@ -82,19 +82,19 @@ func (l *UpdateProfileLogic) UpdateProfile(req *types.UpdateProfileReq) (resp *t
 		}
 
 		if count > 0 {
-			return nil, errors.New("手机号已被使用")
+			return nil, xerr.NewErrCode(xerr.PHONE_ALREADY_USED)
 		}
 	}
 
 	if req.Phone == user.Phone {
-		return nil, errors.New("无修改")
+		return nil, xerr.NewErrCode(xerr.NO_DATA_TO_UPDATE)
 	}
 
 	if req.Username == user.Username {
-		return nil, errors.New("无修改")
+		return nil, xerr.NewErrCode(xerr.NO_DATA_TO_UPDATE)
 	}
 	if req.Email == user.Email {
-		return nil, errors.New("无修改")
+		return nil, xerr.NewErrCode(xerr.NO_DATA_TO_UPDATE)
 	}
 	// 更新字段
 	updates := make(map[string]interface{})
@@ -102,12 +102,12 @@ func (l *UpdateProfileLogic) UpdateProfile(req *types.UpdateProfileReq) (resp *t
 	// 密码修改
 	if req.NewPassword != "" {
 		if req.OldPassword == "" {
-			return nil, errors.New("修改密码需要提供旧密码")
+			return nil, xerr.NewErrMsg("修改密码需要提供旧密码")
 		}
 		// 验证旧密码
 		err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.OldPassword))
 		if err != nil {
-			return nil, errors.New("旧密码错误")
+			return nil, xerr.NewErrCode(xerr.OLD_PASSWORD_ERROR)
 		}
 		// 新密码 hash
 		hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)

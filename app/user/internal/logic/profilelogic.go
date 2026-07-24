@@ -5,13 +5,16 @@ package logic
 
 import (
 	"context"
+	"errors"
 
 	"Ticket/app/user/internal/middleware"
 	"Ticket/app/user/internal/svc"
 	"Ticket/app/user/internal/types"
 	db "Ticket/app/user/model"
+	"Ticket/common/xerr"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"gorm.io/gorm"
 )
 
 type ProfileLogic struct {
@@ -38,6 +41,9 @@ func (l *ProfileLogic) Profile() (*types.UserProfileResp, error) {
 	var user db.User
 	err := l.svcCtx.DB.First(&user, userID).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, xerr.NewErrCode(xerr.USER_NOT_FOUND)
+		}
 		return nil, err
 	}
 

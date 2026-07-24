@@ -2,12 +2,12 @@ package logic
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"Ticket/app/user/internal/svc"
 	"Ticket/app/user/internal/types"
 	db "Ticket/app/user/model"
+	"Ticket/common/xerr"
 	"Ticket/internal/pkg/util"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -32,36 +32,7 @@ func NewRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Register
 func (l *RegisterLogic) Register(req *types.RegisterReq) (resp *types.RegisterResp, err error) {
 	//用户名，密码，电话号邮箱地址不能为空
 	if req.Username == "" || req.Password == "" || req.Phone == "" || req.Email == "" {
-		return nil, errors.New("用户名，密码，电话号邮箱地址不能为空")
-	}
-	var count int64
-	//检查用户名是否存在
-	err = l.svcCtx.DB.Model(&db.User{}).Where("username = ?", req.Username).Count(&count).Error
-	if err != nil {
-		return nil, err
-	}
-	if count > 0 {
-		return nil, errors.New("用户名已经存在")
-	}
-
-	//检查电话号是否存在
-	count = 0
-	err = l.svcCtx.DB.Model(&db.User{}).Where("phone = ?", req.Phone).Count(&count).Error
-	if err != nil {
-		return nil, err
-	}
-	if count > 0 {
-		return nil, errors.New("该电话号已被注册")
-	}
-
-	//检查邮箱地址是否存在
-	count = 0
-	err = l.svcCtx.DB.Model(&db.User{}).Where("email = ?", req.Email).Count(&count).Error
-	if err != nil {
-		return nil, err
-	}
-	if count > 0 {
-		return nil, errors.New("该邮箱已被注册")
+		return nil, xerr.NewErrCode(xerr.EMPTY_USER_INFO)
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -83,7 +54,7 @@ func (l *RegisterLogic) Register(req *types.RegisterReq) (resp *types.RegisterRe
 
 	if err != nil {
 		if strings.Contains(err.Error(), "Duplicate") {
-			return nil, errors.New("用户名/邮箱/电话已被注册")
+			return nil, xerr.NewErrCode(xerr.USER_ALREADY_EXISTS)
 		}
 		return nil, err
 	}
