@@ -1,0 +1,11 @@
+Name: ticket.rpc
+ListenOn: 0.0.0.0:8081
+Etcd:
+  Hosts:
+  - 127.0.0.1:2379
+  Key: ticket.rpc
+Mysql:
+  DSN: "root:123456@tcp(127.0.0.1:3306)/ticket?charset=utf8mb4&parseTime=True&loc=Local"
+  MaxOpenConns: 20
+  MaxIdleConns: 10
+  ConnMaxLifetime: 300

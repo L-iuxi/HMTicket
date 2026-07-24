@@ -1,0 +1,169 @@
+syntax = "proto3";
+
+package ticket;
+
+option go_package = "./ticket";
+
+// =====================
+// Ticket RPC
+// =====================
+
+service Ticket {
+
+  // 出票（支付成功后调用）
+  rpc CreateTicket(CreateTicketReq) returns(CommonResp);
+
+  // 查询票详情
+  rpc GetTicket(GetTicketReq) returns(TicketInfo);
+
+  // 我的票（分页）
+  rpc ListUserTickets(ListUserTicketsReq) returns(ListUserTicketsResp);
+
+  // 验票（扫码）
+  rpc VerifyTicket(VerifyTicketReq) returns(CommonResp);
+
+  // 退票
+  rpc RefundTicket(RefundTicketReq) returns(CommonResp);
+
+  // 转赠
+  rpc TransferTicket(TransferTicketReq) returns(CommonResp);
+
+  // 管理员查看某活动所有票
+  rpc ListEventTickets(ListEventTicketsReq) returns(ListEventTicketsResp);
+}
+
+// =====================
+// 通用返回
+// =====================
+
+message CommonResp {
+  bool success = 1;
+  string message = 2;
+}
+
+// =====================
+// 出票
+// =====================
+
+message CreateTicketReq {
+
+  uint64 user_id = 1;
+
+  uint64 event_id = 2;
+
+  uint64 show_id = 3;
+
+  uint64 ticket_type_id = 4;
+
+  string order_no = 5;
+
+  int32 quantity = 6;
+
+  double total_price = 7;
+
+  string discount_code = 8;
+
+  string real_name = 9;
+
+  string id_card = 10;
+
+  string phone = 11;
+}
+
+// =====================
+// 查询票
+// =====================
+
+message GetTicketReq {
+  uint64 ticket_id = 1;
+}
+
+// =====================
+// Ticket信息
+// =====================
+
+message TicketInfo {
+  uint64 id = 1;
+  uint64 user_id = 2;
+  uint64 event_id = 3;
+  uint64 show_id = 4;
+  uint64 ticket_type_id = 5;
+  string order_no = 6;//订单编号
+  int32 quantity = 7;//购买数量
+
+  double total_price = 8;
+
+  string status = 9;
+  string qr_code = 10;
+  string discount_code = 11;
+  string real_name = 12;
+  string id_card = 13;
+  string phone = 14;
+
+  uint64 transferred_to = 15;
+
+  string transfer_status = 16;
+
+  string created_at = 17;
+  string updated_at = 18;
+}
+
+// =====================
+// 我的票
+// =====================
+
+message ListUserTicketsReq {
+  uint64 user_id = 1;
+  string status = 2;
+  uint32 page = 3;
+  uint32 page_size = 4;
+}
+
+message ListUserTicketsResp {
+
+  repeated TicketInfo tickets = 1;
+  int64 total = 2;
+}
+
+// =====================
+// 验票
+// =====================
+
+message VerifyTicketReq {
+  uint64 ticket_id = 1;
+}
+
+// =====================
+// 退票
+// =====================
+
+message RefundTicketReq {
+  uint64 ticket_id = 1;
+}
+
+// =====================
+// 转赠
+// =====================
+
+message TransferTicketReq {
+  uint64 ticket_id = 1;
+  uint64 to_user_id = 2;
+}
+
+// =====================
+// 管理员查看活动票
+// =====================
+
+message ListEventTicketsReq {
+
+  uint64 event_id = 1;
+  uint32 page = 2;
+  uint32 page_size = 3;
+}
+
+message ListEventTicketsResp {
+
+  repeated TicketInfo tickets = 1;
+
+  int64 total = 2;
+}

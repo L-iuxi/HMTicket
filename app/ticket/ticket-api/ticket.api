@@ -1,0 +1,110 @@
+syntax = "v1"
+
+info (
+	title:  "Ticket API"
+	desc:   "票务服务"
+	author: "xxx"
+)
+
+type CommonResp {
+	code int64  `json:"code"`
+	msg  string `json:"msg"`
+}
+
+// ========================= 我的票 =========================
+type ListTicketReq {
+	page     int    `form:"page,optional"`
+	pageSize int    `form:"pageSize,optional"`
+	status   string `form:"status,optional"`
+}
+
+type TicketInfo {
+	ticketId       uint64  `json:"ticketId"`
+	orderNo        string  `json:"orderNo"`
+	eventId        uint64  `json:"eventId"`
+	showId         uint64  `json:"showId"`
+	ticketTypeId   uint64  `json:"ticketTypeId"`
+	quantity       int     `json:"quantity"`
+	totalPrice     float64 `json:"totalPrice"`
+	status         string  `json:"status"`
+	realName       string  `json:"realName"`
+	phone          string  `json:"phone"`
+	transferStatus string  `json:"transferStatus"`
+	createdAt      string  `json:"createdAt"`
+}
+
+type ListTicketResp {
+	code  int64        `json:"code"`
+	msg   string       `json:"msg"`
+	total int64        `json:"total"`
+	list  []TicketInfo `json:"list"`
+}
+
+// ========================= 票详情 =========================
+type GetTicketReq {
+	ticketId uint64 `path:"ticketId"`
+}
+
+type GetTicketResp {
+	code           int64   `json:"code"`
+	msg            string  `json:"msg"`
+	ticketId       uint64  `json:"ticketId"`
+	orderNo        string  `json:"orderNo"`
+	eventId        uint64  `json:"eventId"`
+	showId         uint64  `json:"showId"`
+	ticketTypeId   uint64  `json:"ticketTypeId"`
+	quantity       int     `json:"quantity"`
+	totalPrice     float64 `json:"totalPrice"`
+	status         string  `json:"status"`
+	qrCode         string  `json:"qrCode"`
+	discountCode   string  `json:"discountCode"`
+	realName       string  `json:"realName"`
+	idCard         string  `json:"idCard"`
+	phone          string  `json:"phone"`
+	transferredTo  uint64  `json:"transferredTo"`
+	transferStatus string  `json:"transferStatus"`
+	createdAt      string  `json:"createdAt"`
+	updatedAt      string  `json:"updatedAt"`
+}
+
+// ========================= 验票 =========================
+type CheckTicketReq {
+	ticketId uint64 `json:"ticketId"`
+}
+
+// ========================= 退票 =========================
+type RefundTicketReq {
+	ticketId uint64 `json:"ticketId"`
+}
+
+// ========================= 出票（内部调试接口） =========================
+type IssueTicketReq {
+	orderNo string `json:"orderNo"`
+}
+
+@server (
+	prefix: /api/ticket
+	jwt:    Auth
+)
+service ticket-api {
+	// 我的票
+	@handler ListTicket
+	get /list (ListTicketReq) returns (ListTicketResp)
+
+	// 票详情
+	@handler GetTicket
+	get /detail/:ticketId (GetTicketReq) returns (GetTicketResp)
+
+	// 验票
+	@handler CheckTicket
+	post /check (CheckTicketReq) returns (CommonResp)
+
+	// 退票
+	@handler RefundTicket
+	post /refund (RefundTicketReq) returns (CommonResp)
+
+	// 出票（仅开发调试使用）
+	@handler IssueTicket
+	post /issue (IssueTicketReq) returns (CommonResp)
+}
+

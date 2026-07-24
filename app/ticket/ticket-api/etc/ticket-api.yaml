@@ -1,0 +1,18 @@
+Name: ticket-api
+Host: 0.0.0.0
+Port: 8892
+Mysql:
+  DSN: "root:123456@tcp(127.0.0.1:3306)/ticket?charset=utf8mb4&parseTime=True&loc=Local"
+  MaxOpenConns: 20
+  MaxIdleConns: 10
+  ConnMaxLifetime: 300
+
+Auth:
+  AccessSecret: "ticket-secret-key"
+  AccessExpire: 604800
+
+TicketRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: ticket.rpc
