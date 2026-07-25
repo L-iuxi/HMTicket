@@ -8,6 +8,7 @@ import (
 	"Ticket/app/inventory/inventory-rpc/internal/server"
 	"Ticket/app/inventory/inventory-rpc/internal/svc"
 	"Ticket/app/inventory/inventory-rpc/inventory"
+	"Ticket/common/xerr"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/service"
@@ -36,6 +37,7 @@ func main() {
 			reflection.Register(grpcServer)
 		}
 	})
+	s.AddUnaryInterceptors(xerr.ErrorInterceptor)
 	defer s.Stop()
 
 	fmt.Printf("Starting rpc server at %s...\n", c.ListenOn)
