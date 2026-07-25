@@ -12,8 +12,9 @@ const (
 
 // 路由 key
 const (
-	RoutingOrderCreate = "order.create"
-	RoutingDeadMessage = "dead.message" // 与 InitQueue 中的 x-dead-letter-routing-key 一致
+	RoutingOrderCreate   = "order.create"   //创建订单
+	RoutingDeadMessage   = "dead.message"   // 死信队列
+	RoutingTimeOutCancel = "timeout.cancel" //超时删除订单
 )
 
 func (mq *RabbitMQ) InitExchange() error {
