@@ -135,6 +135,35 @@ OK = 200
 
 gRPC 拦截器自动将 `*CodeError` 映射到标准 gRPC Status Code（NotFound / InvalidArgument / AlreadyExists / ResourceExhausted …），API 层统一返回 `{code, msg, data}`。
 
+## 性能测试
+
+### 压测环境
+
+- CPU: Intel i7-12700H / OS: Ubuntu 22.04
+- 工具: Go 自研压测程序（`test/bench/`）
+- 所有服务 + MySQL + Redis + RabbitMQ + etcd 同机运行
+
+### 吞吐量
+
+| 场景 | 并发 | QPS | 错误率 |
+|------|------|-----|--------|
+| 单用户 | 50 | 31,066 | 0% |
+| 单用户 | 200 | 29,981 | 0% |
+| 单用户 | 500 | 28,737 | 0% |
+| 三进程 × 500 | 1,500 | 32,400 | 0% |
+| 100 用户 × 5 goroutine | 500 | 29,467 | 0% |
+
+单机 3 万 QPS 天花板，瓶颈在 go-zero 网关 CPU。水平扩展线性增长。
+
+### 正确性验证
+
+| 测试 | 库存 | 结果 |
+|------|------|------|
+| 200 人抢 50 张票 | 50 | ✅ 精准卖出 50，0 超卖 |
+| 101 人抢 100 张票 | 100 | ✅ Redis 库存 100→0，未穿透负数 |
+
+防护措施全部生效——用户限流、票种令牌桶、分布式锁、幂等键、限购校验。多余请求在半路被拦截，压力不透传至库存层。
+
 ## 快速启动
 
 ```bash
@@ -172,3 +201,18 @@ bucket:ticket:{ticketTypeId}                         # 令牌桶
 
 完整表结构见各服务 `model/` 目录。
 
+
+## 测试
+
+```bash
+# 功能测试
+bash test/idempotent_lock_test.sh    # 幂等 + 分布式锁
+bash test/ratelimit_test.sh          # 三层限流
+
+# 端到端
+bash test/test.md                    # 全接口 curl 手册
+
+# 压测
+cd test/bench && go run main.go -c 100 -d 10s
+```
+![alt text](image.png)
