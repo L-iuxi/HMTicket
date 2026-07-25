@@ -1,0 +1,120 @@
+//订单
+syntax = "proto3";
+
+package order;
+
+option go_package = "./order";
+
+service Order {
+    //创建订单
+    rpc CreateOrder(CreateOrderReq) returns (CreateOrderResp);
+    //修改订单状态
+    rpc UpdateOrderStatus (UpdateStatusReq) returns (UpdateStatusResp);
+    //删除订单
+    rpc DeleteOrder (DeleteOrderReq) returns (DeleteOrderResp);
+    //修改订单信息
+    rpc UpdateOrder (UpdateOrderReq) returns (UpdateOrderResp);
+    //获取订单详情
+    rpc GetOrder(GetOrderReq) returns (GetOrderResp);
+    //获取用户订单列表
+    rpc GetOrderList(GetOrderListReq) returns (GetOrderListResp);
+    // 取消订单
+    rpc CancelOrder(CancelOrderReq)returns(CancelOrderResp);
+}
+
+message OrderInfo {
+    uint32 userId = 1;
+    uint64 eventId = 2;
+    uint32 showId = 3;
+    uint32 ticketTypeId = 4;
+
+    string orderNo = 5;
+
+    int32 quantity = 6;
+    double totalPrice = 7;
+
+    string status = 8;
+}
+//==================== 创建订单 ====================
+
+message CreateOrderReq {
+    uint32 userId = 1;
+    uint64 eventId = 2;
+    uint32 showId = 3;
+    uint32 ticketTypeId = 4;
+    int32 quantity = 5;
+    double totalPrice = 6;
+}
+
+message CreateOrderResp {
+    OrderInfo order = 1;
+}
+
+
+//==================== 修改订单状态 ====================
+
+message UpdateStatusReq {
+    string orderNo = 1;
+    string status = 2;
+}
+
+message UpdateStatusResp {
+    bool success = 1;
+}
+
+
+//==================== 删除订单 ====================
+
+message DeleteOrderReq {
+    string orderNo = 1;
+}
+
+message DeleteOrderResp {
+    bool success = 1;
+}
+
+
+//==================== 修改订单 ====================
+
+message UpdateOrderReq {
+    string orderNo = 1;
+
+    int32 quantity = 2;
+}
+
+message UpdateOrderResp {
+    OrderInfo order = 1;
+}
+
+
+//==================== 获取订单详情 ====================
+
+message GetOrderReq {
+    string orderNo = 1;
+}
+
+message GetOrderResp {
+    OrderInfo order = 1;
+}
+
+
+//==================== 获取用户订单列表 ====================
+
+message GetOrderListReq {
+    uint32 userId = 1;
+}
+
+message GetOrderListResp {
+    repeated OrderInfo orders = 1;
+}
+
+
+//==================== 取消订单 ====================
+
+message CancelOrderReq {
+    string orderNo = 1;
+}
+
+message CancelOrderResp {
+    bool success = 1;
+}
