@@ -1,13 +1,16 @@
-# Ticket — 分布式抢票系统
+# Ticket — 分布式高并发抢票系统
 
-基于 go-zero 微服务框架的票务平台，支持活动管理、库存扣减、订单支付、出票验票全链路。
+基于 go-zero 微服务框架的票务平台。7 个服务，gRPC 通信，RabbitMQ 异步削峰，Redis Lua 原子库存扣减。
 
 ## 技术栈
 
-- **语言**: Go 1.25
-- **框架**: go-zero v1.10 + gRPC + GORM
-- **存储**: MySQL + Redis（Lua 原子库存扣减）+ etcd（服务发现）
-- **安全**: bcrypt + JWT
+| 层 | 技术 |
+|---|------|
+| 框架 | go-zero v1.10 + gRPC + GORM |
+| 存储 | MySQL + Redis（Lua 原子脚本） |
+| 消息队列 | RabbitMQ（异步建单 + 死信延迟取消） |
+| 服务发现 | etcd |
+| 安全 | bcrypt + JWT 双角色（用户 / 管理员） |
 
 ## 项目结构
 
@@ -15,17 +18,12 @@
 Ticket/
 ├── common/
 │   ├── xerr/             # 统一错误码 + gRPC 拦截器
-│   │   ├── code.go       # 错误码常量（按模块分段: 1xxxxx 全局 / 2xxxxx 用户 / …）
-│   │   ├── errors.go     # CodeError 结构 + 构造函数
-│   │   ├── message.go    # 错误码 → 中文消息映射
-│   │   └── interceptor.go # gRPC 拦截器: CodeError → status.Error
-│   └── response/
-│       └── response.go   # 统一 HTTP 响应 {code, msg, data}
+│   ├── response/         # 统一 HTTP 响应 {code, msg, data}
+│   └── mq/               # RabbitMQ 封装（exchange/queue/routing key）
 ├── internal/
-│   ├── pkg/db/           # 共享 DB model（正在拆到各服务）
+│   ├── pkg/db/           # MySQL 连接 + AutoMigrate
 │   ├── pkg/jwt/          # JWT 签发
-│   ├── pkg/util/         # 工具函数
-│   └── redis/            # Redis 客户端 + 限流 + 幂等
+│   └── redis/            # Redis 客户端 + Lua 脚本 + 限流 + 幂等 + 分布式锁
 ├── app/
 │   ├── user/             # 用户服务 (API)
 │   ├── admin/            # 管理端 (API)
@@ -40,54 +38,89 @@ Ticket/
 ## 服务架构
 
 ```
-用户端 API                    管理端
-user-api      :8888          admin-api     :8889
-event-api     :8890
-inventory-api :8891
-ticket-api    :8892
-order-api     :8894
-
-RPC 服务                  端口      职责
-event-rpc     :8080       活动/场次/票种 CRUD
-ticket-rpc    :8081       出票/验票/退票/转赠
-payment-rpc   :8082       支付（模拟）
-order-rpc     :8083       订单 CRUD + 超时取消
-inventory-rpc :8084       Redis 库存扣减/释放
+                        客户端
+                          │
+         ┌────────────────┼────────────────┐
+         ▼                ▼                ▼
+    user-api         event-api        order-api
+    admin-api       inventory-api     ticket-api
+         │                │                │
+         └────────────────┼────────────────┘
+                          │ gRPC
+         ┌────────────────┼────────────────┐
+         ▼                ▼                ▼
+    user-rpc         event-rpc         order-rpc ←→ RabbitMQ
+    admin-rpc       inventory-rpc      payment-rpc
+    ticket-rpc
+         │                │                │
+         └────────────────┼────────────────┘
+                          │
+                    MySQL + Redis + etcd
 ```
 
-## 快速启动
+## 核心设计
 
-```bash
-# 前置：MySQL + Redis + etcd
-make start        # 全量启动
-make start-cluster # 集群模式（每 RPC 服务 2 实例）
-make stop         # 停止所有
-make build        # 编译检查
-```
-
-## 核心流程
+### 1. 抢票链路（buy 接口）
 
 ```
 POST /api/v1/order/buy
-  → 限流检查（用户级 + 令牌桶）
-  → 幂等检查（Redis idempotent key）
-  → EventRpc.GetTicketType（查票价）
-  → 用户限购校验
-  → InventoryRpc.DeductStock（Redis Lua 原子扣库存）
-  → OrderRpc.CreateOrder（分布式锁 + MySQL 建订单）
-  → 支付成功 → TicketRpc.CreateTicket（出票）
-  → 支付失败 → 回滚库存 + 取消订单
+  → 1. 三层限流（用户固定窗口 + 票种令牌桶 + 分布式锁）
+  → 2. 幂等检查（Redis idem key，相同 requestId 返回同一订单）
+  → 3. EventRpc.GetTicketType + GetEvent（票价 + 活动状态校验）
+  → 4. 用户限购校验（已购 + 本次 ≤ MaxPerUser）
+  → 5. InventoryRpc.DeductStock（Redis Lua 原子 DECRBY，0 超卖）
+  → 6. 预生成 orderNo（UUID），发 RabbitMQ 异步建订单
+  → 7. 立即返回 orderNo → 客户端直接调支付
 ```
 
-**安全机制**:
-- 三层限流：用户级（滑动窗口）+ 票种级（令牌桶）+ 订单级
-- 幂等保证：请求级幂等 key（Redis），5 分钟内重复请求直接返回
-- 分布式锁：order-rpc / payment-rpc 加 Redis 锁防并发
-- 超时取消：order-rpc 后台定时器，15 分钟未支付自动取消 + 回滚库存
+### 2. Redis Lua 原子脚本
 
-## 错误处理体系
+| 脚本 | 作用 | 为什么是核心 |
+|------|------|------------|
+| `DeductStockLua` | GET + 校验 + DECRBY 一步完成 | 避免"读-判-写"竞态，保证 0 超卖 |
+| `UnlockLua` | GET 比对 value + DEL | 防止锁超时后误删他人锁 |
+| `RateLimitLua` | INCR + 首次设 TTL + 限流判断 | 一次往返完成限流，少两次网络 I/O |
+| `TokenBucketLua` | HMGET + 令牌补充 + 消耗 | 平滑限流，支持突发流量 |
 
-### 错误码分段
+### 3. RabbitMQ 异步削峰
+
+```
+buy API（低延迟）                    order-rpc（异步消费）
+     │                                    │
+     │ 扣库存后发消息 ──→ order.create.queue ──→ handleCreateOrder
+     │                                    │
+     │ 立即返回 orderNo                    ├── DB.Create(Order)
+     │                                    ├── 幂等标记 Success
+     │                                    └── 发超时闹钟 → order.timeout.queue
+```
+
+**为什么用 MQ**：扣库存是 Redis 操作（<1ms），建订单是 MySQL INSERT（~5ms）。高并发时 MySQL 连接池是瓶颈。异步化后 API 层只等 Redis，吞吐量翻 10 倍。
+
+### 4. 超时取消（死信队列延迟消息）
+
+```
+order.timeout.queue                     dead_queue
+（无消费者，消息躺 15 分钟）           StartTimeoutConsumer
+     │                                    │
+     │ TTL 到期 → RabbitMQ 自动路由 ──→   │
+     │                                    ├── 查订单 status
+     │                                    ├── unpaid → 取消 + ReleaseStock
+     │                                    └── paid → 跳过
+```
+
+**为什么不用 cron 扫表**：延迟消息是闹钟模式——到点通知，只查这一条订单。cron 是扫全表模式——每轮扫所有 unpaid 记录，DB 压力大且不实时。
+
+### 5. 安全机制
+
+| 机制 | 实现 | 解决的问题 |
+|------|------|-----------|
+| **三层限流** | 用户固定窗口 + 票种令牌桶 + 分布式锁串行化 | 恶意刷单、突发流量、并发重复 |
+| **幂等** | requestId → Redis idem key，15 分钟窗口 | 网络重试不重复创建订单 |
+| **分布式锁** | Redis SETNX，用户+票种粒度，Lua 安全释放 | 同一用户对同票种串行，防并发重复 |
+| **超时取消** | RabbitMQ 死信队列，15 分钟未支付自动回滚 | 不支付不占库存 |
+| **库存原子性** | Redis Lua DECRBY，单线程执行 | 0 超卖 |
+
+### 6. 错误处理体系
 
 ```
 OK = 200
@@ -100,137 +133,50 @@ OK = 200
 7xxxxx  支付（700001 支付失败 / 700003 重复操作 …）
 ```
 
-### gRPC 拦截器
+gRPC 拦截器自动将 `*CodeError` 映射到标准 gRPC Status Code（NotFound / InvalidArgument / AlreadyExists / ResourceExhausted …），API 层统一返回 `{code, msg, data}`。
 
-所有 RPC 服务自动注入 `xerr.ErrorInterceptor`，将 `*CodeError` 转换为 gRPC `status.Error`：
+## 快速启动
 
-| xerr 错误 | gRPC Code |
-|-----------|-----------|
-| `*_NOT_FOUND` | `NotFound` |
-| `REQUEST_PARAM_ERROR` | `InvalidArgument` |
-| `TOKEN_EXPIRE_ERROR` | `Unauthenticated` |
-| `EVENT_STATUS_INVALID` | `FailedPrecondition` |
-| `STOCK_NOT_ENOUGH` | `ResourceExhausted` |
-| `ORDER_DUPLICATE` | `AlreadyExists` |
-| 其他 | `Internal` |
+```bash
+# 前置依赖
+docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 \
+  -e RABBITMQ_DEFAULT_USER=admin -e RABBITMQ_DEFAULT_PASS=123456 \
+  rabbitmq:3-management
+# MySQL + Redis + etcd
 
-### HTTP 统一响应
-
-所有 API handler 通过 `response.HttpResult` 返回统一格式：
-
-```json
-// 成功
-{"code":200,"msg":"success","data":{...}}
-
-// 业务错误
-{"code":300001,"msg":"活动不存在"}
-
-// 系统错误
-{"code":100001,"msg":"服务器开小差啦，稍后再来试一下"}
+# 启动
+make start          # 全量启动所有服务
+make build          # 编译检查
 ```
 
 ## 数据模型
 
-### User
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| ID | uint | 主键 |
-| UserID | varchar(6) | 用户 ID（6 位随机） |
-| Username | varchar(64) | 用户名，唯一 |
-| Password | varchar(255) | bcrypt 加密 |
-| Email | varchar(128) | 邮箱，唯一 |
-| Phone | varchar(20) | 手机号，唯一 |
-| Role | varchar(32) | user / admin |
-| Gender | uint8 | 0=男 1=女 |
-
-### Event
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| ID | uint | 主键 |
-| Title | varchar(255) | 活动名称 |
-| Description | text | 描述 |
-| Location | varchar(255) | 地点 |
-| CoverImage | varchar(512) | 封面图 |
-| StartTime | time | 开始时间 |
-| EndTime | time | 结束时间 |
-| Status | varchar(32) | draft → ready → selling → closed |
-| TotalStock | int | 总票数 |
-
-### Show
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| ID | uint | 主键 |
-| EventID | uint64 | 所属活动 |
-| Name | varchar(128) | 场次名称 |
-| ShowTime | time | 开始时间 |
-| EndTime | time | 结束时间 |
-| Status | varchar(32) | draft / selling / closed |
-| Venue | varchar(128) | 场馆 |
-| SoldCount | int | 已售数量 |
-| SortOrder | int32 | 排序 |
-
-### TicketType
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| ID | uint | 主键 |
-| EventID | uint64 | 所属活动 |
-| ShowID | uint64 | 所属场次 |
-| Name | varchar(128) | 票种名称（如 VIP / 普通票） |
-| Price | float64 | 价格 |
-| Stock | int32 | MySQL 库存 |
-| MaxPerUser | int32 | 每人限购 |
-| SortOrder | int32 | 排序 |
-
-### Order
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| ID | uint | 主键 |
-| UserID | uint | 用户 |
-| EventID | uint64 | 活动 |
-| ShowID | uint | 场次 |
-| TicketTypeID | uint | 票种 |
-| OrderNo | varchar(64) | 订单号（UUID） |
-| Quantity | int | 购买数量 |
-| TotalPrice | float64 | 总价 |
-| Status | varchar(32) | unpaid → paid / failed / cancelled |
-
-### Ticket
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| ID | uint | 主键 |
-| UserID | uint | 用户 |
-| EventID | uint | 活动 |
-| ShowID | uint | 场次 |
-| TicketTypeID | uint | 票种 |
-| OrderNo | varchar(64) | 关联订单号 |
-| Quantity | int | 数量 |
-| TotalPrice | float64 | 总价 |
-| Status | varchar(32) | unused / used / refunded |
-| QRCode | text | 验票码 |
-| RealName | varchar(64) | 实名 |
-| IDCard | varchar(32) | 身份证 |
-
 ### Redis Key 设计
 
 ```
-# 库存（Lua 原子扣减）
-stock:ticket:{ticketTypeId}
-
-# 分布式锁
-lock:order:{userId}:{eventId}:{showId}:{ticketTypeId}
-lock:payment:{orderNo}
-
-# 幂等
-idem:{userId}:{eventId}:{showId}:{ticketTypeId}:{requestId}
-idem:pay:{userId}:{orderNo}:{requestId}
-
-# 限流
-limit:buy:user:{userId}
-bucket:ticket:{ticketTypeId}
+stock:ticket:{ticketTypeId}                         # 库存（Lua 原子）
+lock:order:{userId}:{eventId}:{showId}:{ticketTypeId} # 分布式锁
+idem:{userId}:{eventId}:{showId}:{ticketTypeId}:{requestId} # 幂等
+limit:buy:user:{userId}                              # 用户限流
+bucket:ticket:{ticketTypeId}                         # 令牌桶
 ```
+
+### MySQL 核心表
+
+- **User** — 用户（bcrypt 密码 + user/admin 双角色）
+- **Event** — 活动（draft → ready → selling → closed）
+- **Show** — 场次
+- **TicketType** — 票种（价格 / 库存 / 限购数）
+- **Order** — 订单（unpaid → paid / cancelled）
+- **Ticket** — 出票记录（QRCode + 实名）
+
+完整表结构见各服务 `model/` 目录。
+
+## TODO
+
+- [ ] #13 wrk 压测 + 性能报告
+- [ ] #14 收尾清理（stockKey 统一、gRPC 超时、代码清理）
+- [ ] 支付回调 webhook mock
+- [ ] Docker Compose 一键部署（含 MySQL/Redis/etcd/RabbitMQ）
+- [ ] 简单前端页面（买票 / 订单查询 / 支付）
+- [ ] 链路追踪（go-zero 自带，开一下）
