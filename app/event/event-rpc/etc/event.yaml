@@ -1,0 +1,21 @@
+Name: event.rpc
+ListenOn: 0.0.0.0:8080
+Etcd:
+  Hosts:
+  - 127.0.0.1:2379
+  Key: event.rpc
+Mysql:
+  DSN: "root:123456@tcp(127.0.0.1:3306)/ticket?charset=utf8mb4&parseTime=True&loc=Local"
+  MaxOpenConns: 20
+  MaxIdleConns: 10
+  ConnMaxLifetime: 300
+
+BizRedis:
+  Addr: "127.0.0.1:6379"
+  Password: ""
+  DB: 0
+InventoryRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: inventory.rpc

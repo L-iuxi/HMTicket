@@ -1,0 +1,218 @@
+syntax = "proto3";
+
+package event;
+
+option go_package = "./event";
+
+service Event {
+
+  // ===========================
+  // 用户查询
+  // ===========================
+
+  // 获取活动列表
+  rpc GetEventList(GetEventListReq) returns (GetEventListResp);
+
+  // 获取活动详情
+  rpc GetEvent(GetEventReq) returns (GetEventResp);
+
+  // 获取活动下所有场次
+  rpc GetShowList(GetShowListReq) returns (GetShowListResp);
+
+  // 获取场次详情
+  rpc GetShow(GetShowReq) returns (GetShowResp);
+
+  // 获取场次下所有票种
+  rpc GetTicketTypeList(GetTicketTypeListReq) returns (GetTicketTypeListResp);
+
+  // 获取票种详情（Order 创建订单主要调用）
+  rpc GetTicketType(GetTicketTypeReq) returns (GetTicketTypeResp);
+
+  // ===========================
+  // Admin 调用
+  // ===========================
+
+  // 创建活动
+  rpc CreateEvent(CreateEventReq) returns (CommonResp);
+
+  // 修改活动
+  rpc UpdateEvent(UpdateEventReq) returns (CommonResp);
+
+  // 修改活动状态（draft、ready、selling、closed）
+  rpc UpdateEventStatus(UpdateEventStatusReq) returns (CommonResp);
+
+  // 创建场次
+  rpc CreateShow(CreateShowReq) returns (CommonResp);
+
+  // 修改场次
+  rpc UpdateShow(UpdateShowReq) returns (CommonResp);
+
+  // 创建票种
+  rpc CreateTicketType(CreateTicketTypeReq) returns (CommonResp);
+
+  // 修改票种
+  rpc UpdateTicketType(UpdateTicketTypeReq) returns (CommonResp);
+}
+
+message CommonResp {
+  bool success = 1;
+  string message = 2;
+}
+
+message Empty {}
+
+//==============================
+// Event
+//==============================
+
+message EventInfo {
+  uint64 id = 1;
+  string title = 2;
+  string description = 3;
+  string location = 4;
+  string coverImage = 5;
+  int64 startTime = 6;
+  int64 endTime = 7;
+  string status = 8;
+  int32 totalStock = 9;//只做展示不做扣除，真正扣除确认在lua脚本
+}
+
+message GetEventListReq {}
+//获取活动列表
+message GetEventListResp {
+  repeated EventInfo events = 1;
+}
+
+message GetEventReq {
+  uint64 eventId = 1;
+}
+
+message GetEventResp {
+  EventInfo event = 1;
+}
+//创建活动
+message CreateEventReq {
+  string title = 1;
+  string description = 2;
+  string location = 3;
+  string coverImage = 4;
+  string startTime = 5;
+  string endTime = 6;
+}
+//更新活动
+message UpdateEventReq {
+  uint64 eventId = 1;
+  string title = 2;
+  string description = 3;
+  string location = 4;
+  string coverImage = 5;
+  string startTime = 6;
+  string endTime = 7;
+}
+//更新活动
+message UpdateEventStatusReq {
+  uint64 eventId = 1;
+  string status = 2;
+}
+
+
+//==============================
+// Show
+//==============================
+
+message ShowInfo {
+  uint64 id = 1;
+  uint64 eventId = 2;
+  string name = 3;
+  string showTime = 4;
+  string endTime = 5;
+  string status = 6;
+  int32 soldCount = 7;//只做展示不做扣除，真正扣除确认在lua脚本
+  int32 sortOrder = 8;
+  string venue = 9;
+}
+//获取活动下所有场次
+message GetShowListReq {
+  uint64 eventId = 1;
+}
+
+message GetShowListResp {
+  repeated ShowInfo shows = 1;
+}
+//获取某个场次详情
+message GetShowReq {
+  uint64 showId = 1;
+}
+
+message GetShowResp {
+  ShowInfo show = 1;
+}
+//创建场次
+message CreateShowReq {
+  uint64 eventId = 1;
+  string name = 2;
+  string showTime = 3;
+  string endTime = 4;
+  int32 sortOrder = 5;
+}
+//更新场次
+message UpdateShowReq {
+  uint64 showId = 1;
+  string name = 2;
+  string showTime = 3;
+  string endTime = 4;
+  string status = 5;
+  string venue = 6;
+  int32 sortOrder = 7;
+}
+
+
+//==============================
+// TicketType
+//==============================
+
+message TicketTypeInfo {
+  uint64 id = 1;
+  uint64 eventId = 2;
+  uint64 showId = 3;
+  string name = 4;
+  double price = 5;
+  int32 stock = 6;
+  int32 maxPerUser = 7;
+  int32 sortOrder = 8;
+}
+//获取场次下所有票种
+message GetTicketTypeListReq {
+  uint64 showId = 1;
+}
+
+message GetTicketTypeListResp {
+  repeated TicketTypeInfo ticketTypes = 1;
+}
+//获取票种详情
+message GetTicketTypeReq {
+  uint64 ticketTypeId = 1;
+}
+
+message GetTicketTypeResp {
+  TicketTypeInfo ticketType = 1;
+}
+//创建某个票种
+message CreateTicketTypeReq {
+  uint64 eventId = 1;
+  uint64 showId = 2;
+  string name = 3;
+  double price = 4;
+  int32 stock = 5;
+  int32 maxPerUser = 6;
+  int32 sortOrder = 7;
+}
+//更新票种
+message UpdateTicketTypeReq {
+  uint64 ticketTypeId = 1;
+  string name = 2;
+  double price = 3;
+  int32 stock = 4;
+  int32 maxPerUser = 5;
+  int32 sortOrder = 6;
+}
