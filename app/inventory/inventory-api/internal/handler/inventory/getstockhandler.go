@@ -9,6 +9,7 @@ import (
 	"Ticket/app/inventory/inventory-api/internal/logic/inventory"
 	"Ticket/app/inventory/inventory-api/internal/svc"
 	"Ticket/app/inventory/inventory-api/internal/types"
+	"Ticket/common/response"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
@@ -16,16 +17,12 @@ func GetStockHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.GetStockReq
 		if err := httpx.Parse(r, &req); err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			response.HttpResult(w, r, nil, err)
 			return
 		}
 
 		l := inventory.NewGetStockLogic(r.Context(), svcCtx)
 		resp, err := l.GetStock(&req)
-		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
-		} else {
-			httpx.OkJsonCtx(r.Context(), w, resp)
-		}
+		response.HttpResult(w, r, resp, err)
 	}
 }
