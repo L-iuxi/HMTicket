@@ -7,98 +7,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const (
-	EventStatusDraft   = "draft"
-	EventStatusReady   = "ready"
-	EventStatusSelling = "selling"
-	EventStatusClosed  = "closed"
-)
-const (
-	OrderUnpaid   = "unpaid"
-	OrderPaid     = "paid"
-	OrderCanceled = "cancelled"
-	OrderRefunded = "refunded"
-)
-
-type User struct {
-	gorm.Model
-	UserID   string `gorm:"type:varchar(6);uniqueIndex"`
-	Username string `gorm:"type:varchar(64);uniqueIndex;not null"`
-	Password string `gorm:"type:varchar(255);not null"`
-	Email    string `gorm:"type:varchar(128);uniqueIndex;not null"`
-	Role     string `gorm:"type:varchar(32);default:user"`
-	Phone    string `gorm:"type:varchar(20);uniqueIndex"`
-	Gender   uint8  `gorm:"default:0"`
-}
-
-type Event struct {
-	gorm.Model
-
-	Title       string `gorm:"type:varchar(255);not null"`
-	Description string `gorm:"type:text"`
-	Location    string `gorm:"type:varchar(255);not null"`
-	CoverImage  string `gorm:"type:varchar(512)"`
-
-	StartTime  time.Time `gorm:"not null;index"`
-	EndTime    time.Time `gorm:"not null;index"`
-	Status     string    `gorm:"type:varchar(32);default:draft;not null;index"`
-	TotalStock int       `gorm:"default:0"`
-}
-
-type TicketType struct {
-	gorm.Model
-
-	EventID    uint64  `gorm:"not null;index"`
-	ShowID     uint64  `gorm:"not null;index"`
-	Name       string  `gorm:"type:varchar(128);not null"`
-	Price      float64 `gorm:"not null"`
-	Stock      int32   `gorm:"not null;default:0"`
-	MaxPerUser int32   `gorm:"not null;default:1"`
-	SortOrder  int32   `gorm:"default:0"`
-}
-
-type Ticket struct {
-	gorm.Model
-
-	UserID       uint `gorm:"not null;index"`
-	EventID      uint `gorm:"not null;index"`
-	ShowID       uint `gorm:"index"`
-	TicketTypeID uint `gorm:"not null;index"`
-
-	OrderNo string `gorm:"type:varchar(64);uniqueIndex;not null"`
-
-	Quantity   int `gorm:"not null;default:1"`
-	TotalPrice float64
-
-	Status string `gorm:"type:varchar(32);not null;default:reserved;index"`
-
-	QRCode string `gorm:"type:text"`
-
-	DiscountCode string `gorm:"type:varchar(64);index"`
-
-	RealName string `gorm:"type:varchar(64);index"`
-	IDCard   string `gorm:"type:varchar(32);index"`
-	Phone    string `gorm:"type:varchar(20);index"`
-
-	TransferredTo uint `gorm:"index"`
-
-	TransferStatus string `gorm:"type:varchar(32);default:none"`
-}
-
-type Order struct {
-	gorm.Model
-
-	UserID uint `gorm:"not null;index"`
-
-	EventID      uint64 `gorm:"not null;index"`
-	ShowID       uint   `gorm:"index"`
-	TicketTypeID uint   `gorm:"not null;index"`
-	OrderNo      string `gorm:"type:varchar(64);uniqueIndex;not null"`
-	Quantity     int    `gorm:"not null;default:1"`
-	TotalPrice   float64
-
-	Status string `gorm:"type:varchar(32);not null;default:reserved;index"`
-}
 type TicketTransfer struct {
 	gorm.Model
 
@@ -119,22 +27,6 @@ type TicketTransfer struct {
 	ReviewedAt *time.Time
 }
 
-type Show struct {
-	gorm.Model
-
-	EventID uint64 `gorm:"not null;index"`
-
-	Name string `gorm:"type:varchar(128);not null"`
-
-	ShowTime time.Time `gorm:"not null;index"`
-	EndTime  time.Time `gorm:"not null"`
-
-	Status    string `gorm:"type:varchar(32);default:draft;not null;index"`
-	Venue     string `gorm:"type:varchar(128);not null"`
-	SoldCount int    `gorm:"default:0"`
-
-	SortOrder int32 `gorm:"default:0"`
-}
 type MarketplaceListing struct {
 	gorm.Model
 
@@ -190,28 +82,14 @@ func NewConnection(dsn string, maxOpenConns, maxIdleConns, connMaxLifetime int) 
 	sqlDB.SetMaxOpenConns(maxOpenConns)
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetConnMaxLifetime(time.Duration(connMaxLifetime) * time.Second)
-	if err := Migrate(db); err != nil {
-		return nil, err
-	}
+
 	return db, nil
 }
 
-func Migrate(db *gorm.DB) error {
-	if err := db.AutoMigrate(&User{}, &Event{}, &Order{}, &TicketType{}, &Ticket{}, &PromoCode{}, &TicketTransfer{}, &Show{}, &MarketplaceListing{}); err != nil {
+func Migrate(db *gorm.DB, models ...interface{}) error {
+	if err := db.AutoMigrate(models...); err != nil {
 		return err
 	}
-
-	// compositeIndexes := []string{
-	// 	"CREATE INDEX IF NOT EXISTS idx_tickets_user_status ON tickets(user_id, status)",
-	// 	"CREATE INDEX IF NOT EXISTS idx_tickets_event_status ON tickets(event_id, status)",
-	// 	"CREATE INDEX IF NOT EXISTS idx_tickets_status_created ON tickets(status, created_at)",
-	// 	"CREATE INDEX IF NOT EXISTS idx_marketplace_status_created ON marketplace_listings(status, created_at)",
-	// }
-	// for _, idx := range compositeIndexes {
-	// 	if err := db.Exec(idx).Error; err != nil {
-	// 		return err
-	// 	}
-	// }
 
 	return nil
 }
