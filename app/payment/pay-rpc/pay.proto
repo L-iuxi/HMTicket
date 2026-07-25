@@ -1,0 +1,24 @@
+//支付
+syntax = "proto3";
+
+package payment;
+
+option go_package = "./payment";
+
+service Payment {
+
+    // 模拟支付
+    rpc Pay(PayReq) returns (PayResp);
+}
+
+message PayReq {
+
+    string order_no = 1;
+    double amount = 2;
+    double totalPrice = 3;
+}
+
+message PayResp {
+    bool success = 1;
+    string message = 2;
+}
