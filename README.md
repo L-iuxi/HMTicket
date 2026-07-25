@@ -172,11 +172,3 @@ bucket:ticket:{ticketTypeId}                         # 令牌桶
 
 完整表结构见各服务 `model/` 目录。
 
-## TODO
-
-- [ ] #13 wrk 压测 + 性能报告
-- [ ] #14 收尾清理（stockKey 统一、gRPC 超时、代码清理）
-- [ ] 支付回调 webhook mock
-- [ ] Docker Compose 一键部署（含 MySQL/Redis/etcd/RabbitMQ）
-- [ ] 简单前端页面（买票 / 订单查询 / 支付）
-- [ ] 链路追踪（go-zero 自带，开一下）
