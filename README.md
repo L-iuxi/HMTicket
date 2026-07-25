@@ -205,14 +205,10 @@ bucket:ticket:{ticketTypeId}                         # 令牌桶
 ## 测试
 
 ```bash
-# 功能测试
-bash test/idempotent_lock_test.sh    # 幂等 + 分布式锁
-bash test/ratelimit_test.sh          # 三层限流
-
-# 端到端
-bash test/test.md                    # 全接口 curl 手册
-
-# 压测
-cd test/bench && go run main.go -c 100 -d 10s
+go run test/idem/main.go             # 幂等 + 分布式锁
+go run test/rate/main.go             # 三层限流
+go run test/e2e/main.go              # 端到端全链路
+go run test/bench/main.go -c 200 -n 50   # 压测: N人抢M张
 ```
-![alt text](image.png)
+
+全接口 curl 手册见 [test/test.md](test/test.md)。
