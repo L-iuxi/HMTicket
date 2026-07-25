@@ -1,0 +1,128 @@
+syntax = "v1"
+
+type (
+	//==================== 获取订单 ====================
+	GetOrderReq {
+		OrderNo string `path:"orderNo"`
+	}
+	GetOrderResp {
+		UserID       uint64  `json:"userId"`
+		EventID      uint64  `json:"eventId"`
+		ShowID       uint64  `json:"showId"`
+		TicketTypeID uint64  `json:"ticketTypeId"`
+		OrderNo      string  `json:"orderNo"`
+		Quantity     int32   `json:"quantity"`
+		TotalPrice   float64 `json:"totalPrice"`
+		Status       string  `json:"status"`
+	}
+	//==================== 我的订单 ====================
+	GetOrderListReq  {}
+	GetOrderInfo {
+		UserID       uint64  `json:"userId"`
+		EventID      uint64  `json:"eventId"`
+		ShowID       uint64  `json:"showId"`
+		TicketTypeID uint64  `json:"ticketTypeId"`
+		OrderNo      string  `json:"orderNo"`
+		Quantity     int32   `json:"quantity"`
+		TotalPrice   float64 `json:"totalPrice"`
+		Status       string  `json:"status"`
+	}
+	GetOrderListResp {
+		Orders []GetOrderInfo `json:"orders"`
+	}
+	//==================== 取消订单 ====================
+	CancelOrderReq {
+		OrderNo string `json:"orderNo"`
+	}
+	CancelOrderResp {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}
+	//==================== 买票 ====================
+	BuyTicketReq {
+		EventID      uint64 `json:"eventId"`
+		ShowID       uint64 `json:"showId"`
+		TicketTypeID uint64 `json:"ticketTypeId"`
+		Quantity     int32  `json:"quantity"`
+	}
+	BuyTicketResp {
+		OrderNo    string  `json:"orderNo"`
+		Status     string  `json:"status"`
+		TotalPrice float64 `json:"totalPrice"`
+		Message    string  `json:"message"`
+	}
+	//==================== 支付 ====================
+	PayOrderReq {
+		OrderNo string `json:"orderNo"`
+	}
+	PayOrderResp {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}
+	//==================== 管理员修改订单 ====================
+	UpdateOrderReq {
+		OrderNo  string `json:"orderNo"`
+		Quantity int32  `json:"quantity"`
+	}
+	UpdateOrderResp {
+		UserID       uint64  `json:"userId"`
+		EventID      uint64  `json:"eventId"`
+		ShowID       uint64  `json:"showId"`
+		TicketTypeID uint64  `json:"ticketTypeId"`
+		OrderNo      string  `json:"orderNo"`
+		Quantity     int32   `json:"quantity"`
+		TotalPrice   float64 `json:"totalPrice"`
+		Status       string  `json:"status"`
+	}
+	//==================== 管理员删除订单 ====================
+	DeleteOrderReq {
+		OrderNo string `path:"orderNo"`
+	}
+	DeleteOrderResp {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}
+)
+
+@server (
+	jwt:    UserAuth
+	prefix: /api/v1/order
+	group:  order
+)
+service order-api {
+	// 我的订单
+	@handler GetOrderList
+	get /list (GetOrderListReq) returns (GetOrderListResp)
+
+	// 订单详情
+	@handler GetOrder
+	get /:orderNo (GetOrderReq) returns (GetOrderResp)
+
+	// 取消订单
+	@handler CancelOrder
+	post /cancel (CancelOrderReq) returns (CancelOrderResp)
+
+	// 买票（扣库存→建订单→等待支付）
+	@handler BuyTicket
+	post /buy (BuyTicketReq) returns (BuyTicketResp)
+
+	//支付(成功出票，失败回滚)
+	@handler Payorder
+	post /buy (PayOrderReq) returns (PayOrderResp)
+}
+
+@server (
+	jwt:    AdminAuth
+	prefix: /api/v1/admin/order
+	group:  admin/order
+)
+service order-api {
+	// 修改订单
+	@handler UpdateOrder
+	put /update (UpdateOrderReq) returns (UpdateOrderResp)
+
+	// 删除订单
+	@handler DeleteOrder
+	delete /:orderNo (DeleteOrderReq) returns (DeleteOrderResp)
+}
+

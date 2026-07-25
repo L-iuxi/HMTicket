@@ -1,0 +1,38 @@
+Name: order-api
+Host: 0.0.0.0
+Port: 8894
+BizRedis:
+  Addr: "127.0.0.1:6379"
+  Password: ""
+  DB: 0
+OrderRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: order.rpc
+InventoryRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: inventory.rpc
+PaymentRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: payment.rpc
+TicketRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: ticket.rpc
+EventRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: event.rpc
+AdminAuth:
+  AccessSecret: "ticket-secret-key"
+  AccessExpire: 604800
+UserAuth:
+  AccessSecret: "ticket-secret-key"
+  AccessExpire: 604800
