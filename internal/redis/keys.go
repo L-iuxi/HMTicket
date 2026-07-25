@@ -2,13 +2,12 @@ package redis
 
 import "fmt"
 
+// Redis key 命名集中管理，避免硬编码散落各处。
+
 const (
-	StockPrefix = "stock:ticket:"
-
+	StockPrefix     = "stock:ticket:"
 	OrderLockPrefix = "lock:order:"
-
-	OrderTimeoutPrefix = "order:timeout:"
-
+	IdempPrefix     = "idem:"
 	UserLimitPrefix = "user:limit:"
 )
 
@@ -16,14 +15,21 @@ func StockKey(ticketTypeID uint64) string {
 	return fmt.Sprintf("%s%d", StockPrefix, ticketTypeID)
 }
 
-func OrderLockKey(orderNo string) string {
-	return OrderLockPrefix + orderNo
+func OrderLockKey(key string) string {
+	return OrderLockPrefix + key
+}
+
+func IdempotentKey(parts ...interface{}) string {
+	s := IdempPrefix
+	for i, p := range parts {
+		if i > 0 {
+			s += ":"
+		}
+		s += fmt.Sprintf("%v", p)
+	}
+	return s
 }
 
 func UserLimitKey(userID uint64) string {
 	return fmt.Sprintf("%s%d", UserLimitPrefix, userID)
-}
-
-func OrderTimeoutKey(orderNo string) string {
-	return OrderTimeoutPrefix + orderNo
 }

@@ -43,6 +43,13 @@ func (l *DistributedLock) Lock(ctx context.Context, key string, expire time.Dura
 // 解锁
 func (l *DistributedLock) Unlock(ctx context.Context, key string, value string) error {
 
-	_, err := l.Eval(ctx, UnlockLua, []string{key}, value).Result()
-	return err
+	result, err := l.client.Eval(ctx, UnlockLua, []string{key}, value).Int()
+	if err != nil {
+		return err
+	}
+
+	if result == 0 {
+		return errors.New("锁不存在或者锁不是当前持有者")
+	}
+	return nil
 }
