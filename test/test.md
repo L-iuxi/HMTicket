@@ -10,19 +10,23 @@ go run test/bench/main.go -c 200 -n 50
 
 ```
 ### 前置安装
-需要redis-server，mysql，etcd，在终端执行如下命令安装：
+需要redis-server，mysql，etcd，rabbitMQ在终端执行如下命令安装：
 ```
 sudo apt install mysql-server -y//mysql密码配置可修改
 sudo apt install redis-server -y
 sudo apt install etcd-server etcd-client -y
+docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 \
+  -e RABBITMQ_DEFAULT_USER=admin -e RABBITMQ_DEFAULT_PASS=123456 \
+  rabbitmq:3-management
 ```
 ### 启动服务
-
+```
   make start-rpc   # 先起 RPC（等注册到 etcd）
   make start-api   # 再起 API
   make start       # 一键全起
   make stop        # 杀掉全部
   make build       # 检查编译
+```
 
 ### user包
 **注册：**
