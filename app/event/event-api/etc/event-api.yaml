@@ -1,0 +1,8 @@
+Name: event-api
+Host: 0.0.0.0
+Port: 8890
+EventRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: event.rpc

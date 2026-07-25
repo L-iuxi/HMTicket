@@ -1,0 +1,86 @@
+syntax = "v1"
+
+info (
+    title:  "Event API"
+    desc:   "活动服务"
+    author: "xfdhm"
+)
+
+type (
+    // ===================== Event =====================
+
+    GetEventReq {
+        EventId int64 `path:"eventId"`
+    }
+
+   GetEventResp {
+    EventID   int64
+    Title     string
+    Desc      string
+    Status    string
+
+    CoverImage string
+    StartTime  int64
+    EndTime    int64
+    Location   string
+    TotalStock int64
+    Shows []ShowDetail
+}
+
+    ShowDetail {
+        ShowID   int64
+        Name     string
+        ShowTime int64
+        Venue    string
+    }
+
+    // ===================== Show =====================
+
+    GetShowReq {
+        ShowId int64 `path:"showId"`
+    }
+
+    GetShowResp {
+        ShowID   int64
+        Name     string
+        ShowTime int64
+        Venue    string
+
+        TicketTypes []TicketTypeDetail
+    }
+
+    // ===================== TicketType =====================
+
+
+    TicketTypeDetail {
+        TicketTypeID int64
+        ShowID       int64
+        Name         string
+        Price        float64
+        Stock        int32
+    }
+
+    GetTicketTypeReq {
+        TicketTypeId int64 `path:"ticketTypeId"`
+    }
+
+    GetTicketTypeResp {
+        TicketTypeID int64
+        ShowID       int64
+        Name         string
+        Price        float64
+        Stock        int32
+    }
+)
+
+service event-api {
+
+    @handler GetEvent
+    get /event/:eventId (GetEventReq) returns (GetEventResp)
+
+    @handler GetShow
+    get /show/:showId (GetShowReq) returns (GetShowResp)
+
+    @handler GetTicketType
+    get /ticket-type/:ticketTypeId (GetTicketTypeReq) returns (GetTicketTypeResp)
+}
