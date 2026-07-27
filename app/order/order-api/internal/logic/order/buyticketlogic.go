@@ -207,6 +207,12 @@ func (l *BuyTicketLogic) BuyTicket(req *types.BuyTicketReq) (*types.BuyTicketRes
 		return nil, fmt.Errorf("发送MQ消息失败: %w", err)
 	}
 
+	// 存 orderNo → idemKey 映射，供查订单时 Redis 回退查询
+	creatingKey := "order:creating:" + orderNo
+	if err := l.svcCtx.Redis.Set(l.ctx, creatingKey, idemKey, 5*time.Minute); err != nil {
+		l.Errorf("存储订单创建映射失败: orderNo=%s, err=%v", orderNo, err)
+	}
+
 	return &types.BuyTicketResp{
 		OrderNo:    orderNo,
 		Status:     "pending",
@@ -215,13 +221,25 @@ func (l *BuyTicketLogic) BuyTicket(req *types.BuyTicketReq) (*types.BuyTicketRes
 	}, nil
 }
 
-// releaseStock 回滚库存
+// releaseStock 回滚库存，三次直接 Redis INCRBY 重试，全部失败则写入补偿记录
 func (l *BuyTicketLogic) releaseStock(ticketTypeID uint64, quantity int32) {
-	_, err := l.svcCtx.InventoryRpc.ReleaseStock(l.ctx, &inventoryclient.ReleaseStockReq{
-		TicketTypeId: ticketTypeID,
-		Quantity:     quantity,
-	})
-	if err != nil {
-		l.Errorf("回滚库存失败: ticketTypeId=%d, quantity=%d, err=%v", ticketTypeID, quantity, err)
+	stockKey := "stock:ticket:" + fmt.Sprintf("%d", ticketTypeID)
+
+	for i := 0; i < 3; i++ {
+		_, err := l.svcCtx.Redis.IncrBy(l.ctx, stockKey, int64(quantity))
+		if err == nil {
+			l.Infof("回滚库存成功: ticketTypeId=%d, quantity=%d, retry=%d", ticketTypeID, quantity, i)
+			return
+		}
+		l.Errorf("回滚库存失败(第%d次): ticketTypeId=%d, quantity=%d, err=%v", i+1, ticketTypeID, quantity, err)
+		time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
 	}
+
+	// 三次重试全部失败 → 写入补偿记录，人工处理
+	reason := "MQ发送成功后回滚库存三次直接INCRBY重试均失败"
+	if err := l.svcCtx.Redis.RecordCompensation(l.ctx, ticketTypeID, quantity, reason, ""); err != nil {
+		l.Errorf("[CRITICAL] 写入补偿记录失败: ticketTypeId=%d, quantity=%d, err=%v", ticketTypeID, quantity, err)
+		return
+	}
+	l.Errorf("[COMPENSATE] 库存回滚失败已记录补偿任务: ticketTypeId=%d, quantity=%d, 请管理员处理", ticketTypeID, quantity)
 }
