@@ -1,3 +1,4 @@
+
 package logic
 
 import (
@@ -5,6 +6,7 @@ import (
 
 	"Ticket/app/inventory/inventory-rpc/internal/svc"
 	"Ticket/app/inventory/inventory-rpc/inventory"
+	"Ticket/internal/redis"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -28,7 +30,7 @@ func (l *UpdateStockLogic) UpdateStock(in *inventory.UpdateStockReq) (*inventory
 
 	if err := l.svcCtx.Redis.Set(
 		l.ctx,
-		stockKey(in.TicketTypeId),
+		redis.StockKey(in.TicketTypeId),
 		in.Stock,
 		0,
 	); err != nil {

@@ -5,6 +5,7 @@ import (
 
 	"Ticket/app/inventory/inventory-rpc/internal/svc"
 	"Ticket/app/inventory/inventory-rpc/inventory"
+	"Ticket/internal/redis"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -28,7 +29,7 @@ func (l *ReleaseStockLogic) ReleaseStock(in *inventory.ReleaseStockReq) (*invent
 
 	remain, err := l.svcCtx.Redis.Client().IncrBy(
 		l.ctx,
-		stockKey(in.TicketTypeId),
+		redis.StockKey(in.TicketTypeId),
 		int64(in.Quantity),
 	).Result()
 

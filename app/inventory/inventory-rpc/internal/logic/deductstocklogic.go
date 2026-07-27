@@ -1,3 +1,4 @@
+
 package logic
 
 import (
@@ -27,7 +28,7 @@ func NewDeductStockLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Deduc
 
 // 扣库存（Redis Lua 原子扣减）
 func (l *DeductStockLogic) DeductStock(in *inventory.DeductStockReq) (*inventory.DeductStockResp, error) {
-	key := stockKey(in.TicketTypeId)
+	key := redis.StockKey(in.TicketTypeId)
 
 	result, err := l.svcCtx.Redis.Eval(l.ctx, redis.DeductStockLua, []string{key}, in.Quantity)
 	if err != nil {

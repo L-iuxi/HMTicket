@@ -1,3 +1,4 @@
+
 package logic
 
 import (
@@ -6,6 +7,7 @@ import (
 
 	"Ticket/app/inventory/inventory-rpc/internal/svc"
 	"Ticket/app/inventory/inventory-rpc/inventory"
+	"Ticket/internal/redis"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -27,23 +29,30 @@ func NewGetStockLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetStock
 // 查询库存
 func (l *GetStockLogic) GetStock(in *inventory.GetStockReq) (*inventory.GetStockResp, error) {
 
-	key := stockKey(in.TicketTypeId)
+	key := redis.StockKey(in.TicketTypeId)
 
 	value, err := l.svcCtx.Redis.Get(l.ctx, key)
-
-	if err == nil {
-		stock, _ := strconv.Atoi(value)
+	if err != nil {
 		return &inventory.GetStockResp{
-			Success:      true,
-			Message:      "success",
+			Success:      false,
+			Message:      "库存未初始化",
 			TicketTypeId: in.TicketTypeId,
-			Stock:        int32(stock),
+		}, nil
+	}
+
+	stock, err := strconv.Atoi(value)
+	if err != nil {
+		return &inventory.GetStockResp{
+			Success:      false,
+			Message:      "库存数据异常",
+			TicketTypeId: in.TicketTypeId,
 		}, nil
 	}
 
 	return &inventory.GetStockResp{
-		Success:      false,
-		Message:      "库存未初始化",
+		Success:      true,
+		Message:      "success",
 		TicketTypeId: in.TicketTypeId,
+		Stock:        int32(stock),
 	}, nil
 }

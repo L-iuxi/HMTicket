@@ -1,3 +1,4 @@
+
 package logic
 
 import (
@@ -5,6 +6,7 @@ import (
 
 	"Ticket/app/inventory/inventory-rpc/internal/svc"
 	"Ticket/app/inventory/inventory-rpc/inventory"
+	"Ticket/internal/redis"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -26,7 +28,7 @@ func NewInitStockLogic(ctx context.Context, svcCtx *svc.ServiceContext) *InitSto
 // 初始化库存
 func (l *InitStockLogic) InitStock(in *inventory.InitStockReq) (*inventory.CommonResp, error) {
 
-	if err := l.svcCtx.Redis.Set(l.ctx, stockKey(in.TicketTypeId), in.Stock, 0); err != nil {
+	if err := l.svcCtx.Redis.Set(l.ctx, redis.StockKey(in.TicketTypeId), in.Stock, 0); err != nil {
 		return nil, err
 	}
 
