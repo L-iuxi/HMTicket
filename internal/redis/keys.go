@@ -5,10 +5,12 @@ import "fmt"
 // Redis key 命名集中管理，避免硬编码散落各处。
 
 const (
-	StockPrefix     = "stock:ticket:"
-	OrderLockPrefix = "lock:order:"
-	IdempPrefix     = "idem:"
-	UserLimitPrefix = "user:limit:"
+	StockPrefix       = "stock:ticket:"
+	OrderLockPrefix   = "lock:order:"
+	IdempPrefix       = "idem:"
+	UserLimitPrefix   = "user:limit:"
+	CompensatePrefix  = "compensate:"
+	CompensateListKey = "compensate:list"
 )
 
 func StockKey(ticketTypeID uint64) string {
