@@ -83,6 +83,71 @@ func (r *RedisClient) RemoveCompensation(ctx context.Context, ticketTypeID uint6
 	return r.SRem(ctx, CompensateListKey, ticketTypeID)
 }
 
+// OrderStatusRecord 订单状态补偿记录（支付完成但状态更新失败）
+type OrderStatusRecord struct {
+	OrderNo      string `json:"orderNo"`
+	TargetStatus string `json:"targetStatus"`
+	Reason       string `json:"reason"`
+	CreatedAt    string `json:"createdAt"`
+}
+
+const orderCompensatePrefix = "compensate:order:"
+const orderCompensateListKey = "compensate:order:list"
+
+// RecordOrderStatusCompensation 记录订单状态更新失败的补偿任务
+func (r *RedisClient) RecordOrderStatusCompensation(ctx context.Context, orderNo, targetStatus, reason string) error {
+	key := orderCompensatePrefix + orderNo
+	now := time.Now().Format(time.RFC3339)
+
+	if err := r.HMSet(ctx, key, map[string]interface{}{
+		"target_status": targetStatus,
+		"reason":        reason,
+		"created_at":    now,
+	}); err != nil {
+		return fmt.Errorf("记录订单状态补偿失败: %w", err)
+	}
+
+	if err := r.SAdd(ctx, orderCompensateListKey, orderNo); err != nil {
+		return fmt.Errorf("加入订单补偿列表失败: %w", err)
+	}
+
+	return nil
+}
+
+// ListOrderStatusCompensations 列出所有订单状态补偿记录
+func (r *RedisClient) ListOrderStatusCompensations(ctx context.Context) ([]OrderStatusRecord, error) {
+	orderNos, err := r.SMembers(ctx, orderCompensateListKey)
+	if err != nil {
+		return nil, fmt.Errorf("读取订单补偿列表失败: %w", err)
+	}
+
+	records := make([]OrderStatusRecord, 0, len(orderNos))
+	for _, orderNo := range orderNos {
+		key := orderCompensatePrefix + orderNo
+		vals, err := r.HMGet(ctx, key, "target_status", "reason", "created_at")
+		if err != nil {
+			continue
+		}
+
+		records = append(records, OrderStatusRecord{
+			OrderNo:      orderNo,
+			TargetStatus: coalesceStr(vals[0]),
+			Reason:       coalesceStr(vals[1]),
+			CreatedAt:    coalesceStr(vals[2]),
+		})
+	}
+
+	return records, nil
+}
+
+// RemoveOrderStatusCompensation 补偿执行成功后删除记录
+func (r *RedisClient) RemoveOrderStatusCompensation(ctx context.Context, orderNo string) error {
+	if err := r.Del(ctx, orderCompensatePrefix+orderNo); err != nil {
+		return err
+	}
+	return r.SRem(ctx, orderCompensateListKey, orderNo)
+}
+
 func coalesceStr(v interface{}) string {
 	if v == nil {
 		return ""

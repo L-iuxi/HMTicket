@@ -3,7 +3,6 @@ package redis
 import "fmt"
 
 // Redis key 命名集中管理，避免硬编码散落各处。
-
 const (
 	StockPrefix       = "stock:ticket:"
 	OrderLockPrefix   = "lock:order:"
