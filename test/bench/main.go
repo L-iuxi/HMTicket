@@ -26,6 +26,7 @@ var (
 	concurrency = flag.Int("c", 200, "并发用户数")
 	tickets     = flag.Int("n", 50, "库存票数")
 	timeout     = flag.Duration("t", 30*time.Second, "重试超时")
+	raw         = flag.Bool("raw", false, "裸测：去掉 sleep，打满 QPS")
 )
 
 var client = &http.Client{Timeout: 10 * time.Second}
@@ -45,15 +46,19 @@ func post(url, token, body string) (int, string) {
 	return resp.StatusCode, string(b)
 }
 
-func put(url, token, body string) {
+func put(url, token, body string) (int, string) {
 	req, _ := http.NewRequest("PUT", url, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
-	resp, _ := client.Do(req)
-	if resp != nil {
-		io.Copy(io.Discard, resp.Body)
-		resp.Body.Close()
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, err.Error()
+	}
+	b, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	return resp.StatusCode, string(b)
 }
 
 func main() {
@@ -75,16 +80,70 @@ func main() {
 	}
 	fmt.Println("OK")
 
-	// 2. create new ticket type with exact stock
-	fmt.Printf("[2/4] 创建票种 stock=%d maxPerUser=999... ", *tickets)
-	ttName := fmt.Sprintf("BENCH-%d", ts%9999999)
-	_, _ = post("http://127.0.0.1:8889/admin/ticket-type", adminTK,
-		fmt.Sprintf(`{"eventId":1,"showId":1,"name":"%s","price":1,"stock":%d,"maxPerUser":999,"sortOrder":99}`, ttName, *tickets))
-	put("http://127.0.0.1:8889/admin/event/status", adminTK, `{"eventId":1,"status":"selling"}`)
+	// 2. 创建新活动 + 新场次 + 新票种
+	fmt.Printf("[2/4] 创建活动/场次/票种 stock=%d... ", *tickets)
+	evtName := fmt.Sprintf("BENCH-%d", ts%9999999)
+	now := time.Now()
+	evtStart := now.Add(-1 * time.Hour).Format("2006-01-02 15:04:05")
+	evtEnd := now.Add(24 * time.Hour).Format("2006-01-02 15:04:05")
 
-	// find ttID
+	// 建活动
+	post("http://127.0.0.1:8889/admin/event", adminTK, fmt.Sprintf(
+		`{"title":"%s","description":"bench","location":"test","startTime":"%s","endTime":"%s"}`,
+		evtName, evtStart, evtEnd))
+
+	// 找到刚建的活动 ID（从大到小扫，新创建的 ID 最大）
+	var evtID int
+	for id := 50; id >= 1; id-- {
+		resp, _ := http.Get(fmt.Sprintf("http://127.0.0.1:8890/event/%d", id))
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if strings.Contains(string(b), evtName) {
+			evtID = id
+			break
+		}
+	}
+
+	// 建场次（用唯一名称）
+	showName := fmt.Sprintf("SHOW-%d", ts%9999999)
+	post("http://127.0.0.1:8889/admin/show", adminTK, fmt.Sprintf(
+		`{"eventId":%d,"name":"%s","showTime":"%s","endTime":"%s","sortOrder":1}`,
+		evtID, showName, evtStart, evtEnd))
+
+	// 找到刚建的场次 ID
+	var showID int
+	for id := 50; id >= 1; id-- {
+		resp, _ := http.Get(fmt.Sprintf("http://127.0.0.1:8890/show/%d", id))
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if strings.Contains(string(b), showName) {
+			showID = id
+			break
+		}
+	}
+
+	// 建票种（用唯一名称）
+	ttName := fmt.Sprintf("BENCH-TT-%d", ts%9999999)
+	post("http://127.0.0.1:8889/admin/ticket-type", adminTK, fmt.Sprintf(
+		`{"eventId":%d,"showId":%d,"name":"%s","price":1,"stock":%d,"maxPerUser":999,"sortOrder":99}`,
+		evtID, showID, ttName, *tickets))
+
+	// 活动 draft → ready → selling
+	code, putBody := put("http://127.0.0.1:8889/admin/event/status", adminTK,
+		fmt.Sprintf(`{"eventId":%d,"status":"ready"}`, evtID))
+	fmt.Printf("draft→ready: code=%d body=%s\n", code, strings.TrimSpace(putBody))
+	code, putBody = put("http://127.0.0.1:8889/admin/event/status", adminTK,
+		fmt.Sprintf(`{"eventId":%d,"status":"selling"}`, evtID))
+	fmt.Printf("ready→selling: code=%d body=%s\n", code, strings.TrimSpace(putBody))
+	// 验证 event status 是否真的变了
+	evtResp, _ := http.Get(fmt.Sprintf("http://127.0.0.1:8890/event/%d", evtID))
+	evtBody, _ := io.ReadAll(evtResp.Body)
+	evtResp.Body.Close()
+	fmt.Printf("活动状态确认: %s\n", strings.TrimSpace(string(evtBody)))
+
+	// 找票种 ID
 	var ttID int
-	for id := 1; id <= 30; id++ {
+	for id := 50; id >= 1; id-- {
 		resp, _ := http.Get(fmt.Sprintf("http://127.0.0.1:8890/ticket-type/%d", id))
 		b, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
@@ -93,9 +152,16 @@ func main() {
 			break
 		}
 	}
-	put("http://127.0.0.1:8891/api/v1/admin/inventory/stock", adminTK,
+
+	// 初始化 Redis 库存
+	_, _ = put("http://127.0.0.1:8891/api/v1/admin/inventory/stock", adminTK,
 		fmt.Sprintf(`{"ticketTypeId":%d,"stock":%d}`, ttID, *tickets))
-	fmt.Printf("ID=%d  stock=%d\n", ttID, *tickets)
+
+	// 验证库存是否生效
+	resp, _ := http.Get(fmt.Sprintf("http://127.0.0.1:8891/api/v1/inventory/stock/%d", ttID))
+	b, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	fmt.Printf("evt=%d show=%d tt=%d stock=%s\n", evtID, showID, ttID, strings.TrimSpace(string(b)))
 
 	// 3. register users
 	fmt.Printf("[3/4] 注册 %d 个用户... ", *concurrency)
@@ -133,8 +199,8 @@ func main() {
 				seq++
 				totalReq.Add(1)
 				_, body := post("http://127.0.0.1:8894/api/v1/order/buy", token, fmt.Sprintf(
-					`{"eventId":1,"showId":1,"ticketTypeId":%d,"quantity":1,"requestId":"bench-%d-%d-%d"}`,
-					ttID, ts, idx, seq))
+					`{"eventId":%d,"showId":%d,"ticketTypeId":%d,"quantity":1,"requestId":"bench-%d-%d-%d"}`,
+					evtID, showID, ttID, ts, idx, seq))
 				var r struct{ Data struct{ OrderNo string } }
 				json.Unmarshal([]byte(body), &r)
 				if r.Data.OrderNo != "" {
@@ -144,8 +210,10 @@ func main() {
 					}
 					return
 				}
-				// 被拒，等 100ms 再试
-				time.Sleep(100 * time.Millisecond)
+				// 被拒，等 100ms 再试（raw 模式不等，打满 QPS）
+				if !*raw {
+					time.Sleep(100 * time.Millisecond)
+				}
 			}
 		}(tk, i)
 	}
@@ -155,8 +223,12 @@ func main() {
 	time.Sleep(3 * time.Second) // wait for MQ
 
 	// 5. result
+	qps := float64(totalReq.Load()) / elapsed
+	successQPS := float64(sold.Load()) / elapsed
+
 	fmt.Printf("\n========== 结果 ==========\n")
-	fmt.Printf("库存: %d  用户: %d  耗时: %.1fs  总请求: %d\n", *tickets, len(tokens), elapsed, totalReq.Load())
+	fmt.Printf("库存: %d  用户: %d  耗时: %.1fs  总请求: %d  QPS: %.0f  成功QPS: %.1f\n",
+		*tickets, len(tokens), elapsed, totalReq.Load(), qps, successQPS)
 	fmt.Printf("卖出: %d 张\n", sold.Load())
 
 	switch {
