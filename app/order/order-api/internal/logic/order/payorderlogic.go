@@ -172,4 +172,10 @@ func (l *PayorderLogic) updateOrderStatus(orderNo, status string) {
 		lastErr = err
 	}
 	l.Errorf("更新订单状态失败(已重试3次): orderNo=%s, status=%s, err=%v", orderNo, status, lastErr)
+
+	// 写补偿记录，防止超时取消误释放已支付订单的库存
+	reason := fmt.Sprintf("支付出票成功但更新订单状态为%s失败(3次重试)", status)
+	if err := l.svcCtx.Redis.RecordOrderStatusCompensation(l.ctx, orderNo, status, reason); err != nil {
+		l.Errorf("记录订单状态补偿失败: orderNo=%s, err=%v", orderNo, err)
+	}
 }

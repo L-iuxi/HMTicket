@@ -61,7 +61,7 @@ func (l *BuyTicketLogic) BuyTicket(req *types.BuyTicketReq) (*types.BuyTicketRes
 
 	ticketTypeId := req.TicketTypeID
 	key := fmt.Sprintf("bucket:ticket:%d", ticketTypeId)
-	ok, err = l.svcCtx.TokenBucket.Allow(l.ctx, key, 50, 10)
+	ok, err = l.svcCtx.TokenBucket.Allow(l.ctx, key, 200, 100)
 	if err != nil {
 		return nil, err
 	}

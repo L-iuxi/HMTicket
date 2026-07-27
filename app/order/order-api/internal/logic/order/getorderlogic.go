@@ -2,7 +2,6 @@ package order
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"Ticket/app/order/order-api/internal/svc"
@@ -11,6 +10,7 @@ import (
 	"Ticket/common/xerr"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc/status"
 )
 
 type GetOrderLogic struct {
@@ -45,9 +45,12 @@ func (l *GetOrderLogic) GetOrder(req *types.GetOrderReq) (*types.GetOrderResp, e
 	}
 
 	// MySQL 没查到，可能是 MQ 还没消费完。查 Redis 回退。
-	var codeErr *xerr.CodeError
-	if errors.As(err, &codeErr) && codeErr.GetErrCode() == xerr.ORDER_NOT_FOUND {
-		return l.checkCreatingStatus(req.OrderNo)
+	if st, ok := status.FromError(err); ok {
+		// gRPC error 格式 "ErrCode:600001, ErrMsg:订单不存在"
+		msg := st.Message()
+		if strings.Contains(msg, "600001") || strings.Contains(msg, "订单不存在") {
+			return l.checkCreatingStatus(req.OrderNo)
+		}
 	}
 
 	return nil, err
