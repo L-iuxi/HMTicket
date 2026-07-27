@@ -79,7 +79,7 @@ func handleCreateOrder(ctx context.Context, svcCtx *svc.ServiceContext, body []b
 		return err
 	}
 
-	// 标记幂等成功（3 次重试，全失败则 return err 走 NACK/死信兜底）
+	// 标记幂等成功
 	if msg.IdemKey != "" && svcCtx.Idempotent != nil {
 		var idemErr error
 		for i := 0; i < 3; i++ {
@@ -95,7 +95,7 @@ func handleCreateOrder(ctx context.Context, svcCtx *svc.ServiceContext, body []b
 		}
 	}
 
-	// 发超时消息（3 次重试）
+	// 发超时消息
 	timeoutMsg := mq.TimeOutCancelMessage{
 		OrderNo:      msg.OrderNo,
 		Quantity:     msg.Quantity,
@@ -136,7 +136,6 @@ func handleCreateOrder(ctx context.Context, svcCtx *svc.ServiceContext, body []b
 
 // StartDeadConsumer 监听 dead_queue。
 // 两种消息会到这里：1) 建订单 3 次重试失败  2) 超时取消 TTL 到期
-// 按 idemKey 字段区分类型。
 func StartDeadConsumer(svcCtx *svc.ServiceContext) error {
 	if svcCtx.MQ == nil {
 		logx.Error("[order-rpc] MQ 未连接，跳过死信消费者启动")
@@ -168,12 +167,11 @@ func StartDeadConsumer(svcCtx *svc.ServiceContext) error {
 	return svcCtx.MQ.Consume(mq.DeadQueue, handler)
 }
 
-// handleDeadOrderCreate 消息进死信（3 次重试都返回了 error）。
-// 先查 MySQL：订单可能已经创建成功（DB.Create 成功但 ACK/幂等标记那一步崩了）。
+// 建订单死信
 func handleDeadOrderCreate(ctx context.Context, svcCtx *svc.ServiceContext, msg *mq.CreateOrderMessage) error {
 	logx.Errorf("[DEAD] 建订单消息进死信: orderNo=%s, idemKey=%s", msg.OrderNo, msg.IdemKey)
 
-	// 1. 先查 MySQL —— 订单可能已经在数据库里
+	//  先查 MySQL
 	var existingOrder db.Order
 	err := svcCtx.DB.Where("order_no = ?", msg.OrderNo).First(&existingOrder).Error
 
@@ -186,7 +184,7 @@ func handleDeadOrderCreate(ctx context.Context, svcCtx *svc.ServiceContext, msg 
 			}
 		}
 
-		// 补发超时消息（原消息因 Publish 失败才进死信）
+		// 补发超时消息（
 		timeoutMsg := mq.TimeOutCancelMessage{
 			OrderNo:      msg.OrderNo,
 			Quantity:     msg.Quantity,
@@ -214,7 +212,7 @@ func handleDeadOrderCreate(ctx context.Context, svcCtx *svc.ServiceContext, msg 
 		return nil
 	}
 
-	// 2. 订单不存在 —— 建订单真的失败了。标记 failed + 回滚库存。
+	// 订单不存在
 	logx.Errorf("[DEAD] 订单不存在，确认创建失败: orderNo=%s", msg.OrderNo)
 
 	if msg.IdemKey != "" && svcCtx.Idempotent != nil {
@@ -235,7 +233,7 @@ func handleDeadOrderCreate(ctx context.Context, svcCtx *svc.ServiceContext, msg 
 		return nil
 	}
 
-	// 回滚库存（直接 Redis INCRBY，3 次重试）
+	// 回滚库存
 	stockKey := fmt.Sprintf("stock:ticket:%d", msg.TicketTypeID)
 	for i := 0; i < 3; i++ {
 		_, err := svcCtx.Redis.IncrBy(ctx, stockKey, int64(msg.Quantity))
@@ -265,17 +263,26 @@ func handleTimeOutCancel(ctx context.Context, svcCtx *svc.ServiceContext, body [
 	var msg mq.TimeOutCancelMessage
 	if err := json.Unmarshal(body, &msg); err != nil {
 		logx.Errorf("[DEAD] 超时消息反序列化失败: %v, body=%s", err, string(body))
-		return nil // 格式不对直接 ACK，不重试
+		return nil // 格式不对
 	}
 
 	var order db.Order
 	if err := svcCtx.DB.Where("order_no = ?", msg.OrderNo).First(&order).Error; err != nil {
 		logx.Errorf("[DEAD] 订单不存在: %s", msg.OrderNo)
-		return nil // 订单已经没了，直接 ACK
+		return nil // 订单已经没了
 	}
 
 	if order.Status != "unpaid" {
-		return nil // 已支付或已取消，跳过
+		return nil
+	}
+
+	// 查订单状态补偿记录
+	compKey := "compensate:order:" + msg.OrderNo
+	if exists, _ := svcCtx.Redis.Exists(ctx, compKey); exists {
+		logx.Infof("[DEAD] 订单已支付（补偿记录存在），跳过回滚: orderNo=%s", msg.OrderNo)
+		svcCtx.DB.Model(&order).Update("status", db.OrderPaid)
+		svcCtx.Redis.RemoveOrderStatusCompensation(ctx, msg.OrderNo)
+		return nil
 	}
 
 	// 防重复回滚：SETNX 标记，只允许执行一次
@@ -286,13 +293,13 @@ func handleTimeOutCancel(ctx context.Context, svcCtx *svc.ServiceContext, body [
 		return err // NACK 重试
 	}
 	if !ok {
-		// 已释放过，跳过库存回滚，只确保状态正确
+		// 已释放过
 		logx.Infof("[DEAD] 库存已释放过，跳过: orderNo=%s", msg.OrderNo)
 		svcCtx.DB.Model(&order).Update("status", db.OrderCanceled)
 		return nil
 	}
 
-	// 回滚库存（直接 Redis INCRBY，3 次重试）
+	// 回滚库存
 	stockKey := fmt.Sprintf("stock:ticket:%d", msg.TicketTypeID)
 	for i := 0; i < 3; i++ {
 		_, err := svcCtx.Redis.IncrBy(ctx, stockKey, int64(msg.Quantity))
