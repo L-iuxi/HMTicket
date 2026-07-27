@@ -53,6 +53,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Path:    "/ticket-type",
 					Handler: UpdateTicketTypeHandler(serverCtx),
 				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/compensations",
+					Handler: ListCompensationsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/compensation/execute",
+					Handler: ExecuteCompensationHandler(serverCtx),
+				},
 			}...,
 		),
 		rest.WithPrefix("/admin"),

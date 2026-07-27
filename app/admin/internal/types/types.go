@@ -99,3 +99,28 @@ type UpdateTicketTypeStatusReq struct {
 
 type UpdateTicketTypeStatusResp struct {
 }
+
+type ListCompensationsReq struct {
+}
+
+type CompensationItem struct {
+	TicketTypeID uint64 `json:"ticketTypeId"`
+	Quantity     int32  `json:"quantity"`
+	Reason       string `json:"reason"`
+	LastOrderNo  string `json:"lastOrderNo"`
+	CreatedAt    string `json:"createdAt"`
+}
+
+type ListCompensationsResp struct {
+	Records []CompensationItem `json:"records"`
+}
+
+type ExecuteCompensationReq struct {
+	TicketTypeID uint64 `json:"ticketTypeId"`
+}
+
+type ExecuteCompensationResp struct {
+	Success    bool   `json:"success"`
+	Message    string `json:"message"`
+	NewStock   int64  `json:"newStock"`
+}
