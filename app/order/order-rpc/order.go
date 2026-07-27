@@ -41,16 +41,16 @@ func main() {
 	s.AddUnaryInterceptors(xerr.ErrorInterceptor)
 	defer s.Stop()
 
-	// 启动订单MQ 消费者
+	// 启动订单 MQ 消费者（异步建订单）
 	if ctx.MQ != nil {
 		if err := logic.StartOrderConsumer(ctx); err != nil {
-			fmt.Printf("[order-rpc] MQ consumer 启动失败: %v\n", err)
+			fmt.Printf("[order-rpc] MQ order consumer 启动失败: %v\n", err)
 		}
 	}
-	//启动支付MQ
+	// 启动死信消费者（建订单失败补偿 + 超时取消）
 	if ctx.MQ != nil {
-		if err := logic.StartTimeoutConsumer(ctx); err != nil {
-			fmt.Printf("[order-rpc] MQ consumer 启动失败: %v\n", err)
+		if err := logic.StartDeadConsumer(ctx); err != nil {
+			fmt.Printf("[order-rpc] MQ dead consumer 启动失败: %v\n", err)
 		}
 	}
 	fmt.Printf("Starting rpc server at %s...\n", c.ListenOn)
