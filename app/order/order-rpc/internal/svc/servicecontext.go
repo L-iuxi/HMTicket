@@ -20,6 +20,7 @@ type ServiceContext struct {
 	Lock         *redis.DistributedLock
 	Idempotent   *redis.Idempotent
 	MQ           *mq.RabbitMQ
+	Redis        *redis.RedisClient
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -54,6 +55,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	return &ServiceContext{
 		Config:       c,
 		DB:           conn,
+		Redis:        redisClient,
 		Lock:         redis.NewDistributedLock(redisClient.Client()),
 		Idempotent:   redis.NewIdempotent(redisClient.Client()),
 		InventoryRpc: inventoryclient.NewInventory(zrpc.MustNewClient(c.InventoryRpc)),
