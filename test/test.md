@@ -234,4 +234,53 @@ http://127.0.0.1:8892/api/ticket/check \
 {
     "ticketId":1
 }'
+---
+
+## 压测（bench）
+
+### 用法
+
+```bash
+# 直连 order-api（单实例）
+go run test/bench/main.go -c 200 -n 50
+
+# raw 模式 — 去掉 100ms 重试间隔，打满 QPS
+go run test/bench/main.go -c 500 -n 100 -raw
+
+# 走 Nginx — -addr 指定 Nginx 地址
+go run test/bench/main.go -c 500 -n 100 -raw -addr 127.0.0.1:8090
+
+# 多客户端同时打 Nginx
+go run test/bench/main.go -c 300 -n 50 -raw -addr 127.0.0.1:8090 &
+go run test/bench/main.go -c 300 -n 50 -raw -addr 127.0.0.1:8090 &
+go run test/bench/main.go -c 300 -n 50 -raw -addr 127.0.0.1:8090 &
+wait
+```
+
+### 参数
+
+| 参数 | 默认 | 说明 |
+|------|------|------|
+| `-c` | 200 | 并发用户数 |
+| `-n` | 50 | 库存票数 |
+| `-t` | 30s | 抢票超时 |
+| `-raw` | false | 去 sleep，打满 QPS |
+| `-addr` | 空 | Nginx 地址，如 `127.0.0.1:8090`。留空直连各服务端口 |
+
+### 流程
+
+自动完成：admin 登录 → 创建活动/场次/票种 → 注册用户 → 并发抢票 → 验证 0 超卖。
+
+### 单机基准数据
+
+```
+500 人抢 100 张 | raw 模式 | 单实例直连
+总请求 917,090 | QPS 30,566 | 卖出 100 | 超卖 0
+
+3×300 人抢 50 张 | raw | Nginx + 3 实例
+总请求 928,124 | QPS 30,909 | 卖出 150 | 超卖 0
+```
+
+单机 **30k QPS** 是 go-zero + net/http 栈上限。加机器 N × 30k。
+
 **转赠**
