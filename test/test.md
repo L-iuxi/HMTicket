@@ -10,15 +10,36 @@ go run test/bench/main.go -c 200 -n 50
 
 ```
 ### 前置安装
-需要redis-server，mysql，etcd，rabbitMQ在终端执行如下命令安装：
+需要redis-server，mysql，etcd，rabbitMQ,nginx在终端执行如下命令安装：
 ```
+# 安装mysql
 sudo apt install mysql-server -y//mysql密码配置可修改
-sudo apt install redis-server -y
+
+# 安装redis
+sudo apt install redis-server -y# 
+
+# 安装etcd
 sudo apt install etcd-server etcd-client -y
+
+# 启动rabbitmq镜像
 docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 \
   -e RABBITMQ_DEFAULT_USER=admin -e RABBITMQ_DEFAULT_PASS=123456 \
   rabbitmq:3-management
+
+# Nginx
+# 安装
+sudo apt install nginx
+# 把项目配置软链过去
+sudo ln -sf /home/Ticket/nginx/nginx.conf /etc/nginx/nginx.conf
+# 启动
+sudo nginx
+# 重载（修改配置后）
+sudo nginx -s reload
+# 停止
+sudo nginx -s stop
+
 ```
+
 ### 启动服务
 ```
   make start-rpc   # 先起 RPC（等注册到 etcd）
@@ -234,7 +255,7 @@ http://127.0.0.1:8892/api/ticket/check \
 {
     "ticketId":1
 }'
----
+
 
 ## 压测（bench）
 
@@ -283,4 +304,3 @@ wait
 
 单机 **30k QPS** 是 go-zero + net/http 栈上限。加机器 N × 30k。
 
-**转赠**
