@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	db "Ticket/app/order/model"
@@ -63,6 +64,12 @@ func handleCreateOrder(ctx context.Context, svcCtx *svc.ServiceContext, body []b
 		return err
 	}
 
+	if msg.IdemKey != "" && svcCtx.Idempotent != nil {
+		val, _ := svcCtx.Idempotent.Get(ctx, msg.IdemKey)
+		if strings.HasPrefix(val, "ok") {
+			return nil //已幂等成功，由于各种原因来到队列
+		}
+	}
 	order := db.Order{
 		UserID:       uint(msg.UserID),
 		EventID:      msg.EventID,
