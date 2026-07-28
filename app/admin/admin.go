@@ -9,6 +9,7 @@ import (
 
 	"Ticket/app/admin/internal/config"
 	"Ticket/app/admin/internal/handler"
+	logic "Ticket/app/admin/internal/logic"
 	"Ticket/app/admin/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/conf"
@@ -28,6 +29,9 @@ func main() {
 
 	ctx := svc.NewServiceContext(c)
 	handler.RegisterHandlers(server, ctx)
+
+	// 后台定时自动执行补偿记录
+	logic.StartAutoCompensation(ctx)
 
 	fmt.Printf("Starting server at %s:%d...\n", c.Host, c.Port)
 	server.Start()
