@@ -2,18 +2,14 @@ package mq
 
 import (
 	"context"
-	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 // SendMsg 发送消息到 ticket_exchange
 func (mq *RabbitMQ) SendMsg(ctx context.Context, body []byte, routingKey string) error {
-	pubCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
 	return mq.Ch.PublishWithContext(
-		pubCtx,
+		ctx,
 		TicketExchange,
 		routingKey,
 		false, // mandatory
