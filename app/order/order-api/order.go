@@ -6,6 +6,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 
 	"Ticket/app/order/order-api/internal/config"
 	"Ticket/app/order/order-api/internal/handler"
@@ -28,6 +30,12 @@ func main() {
 
 	ctx := svc.NewServiceContext(c)
 	handler.RegisterHandlers(server, ctx)
+
+	// pprof 性能分析端口
+	go func() {
+		fmt.Println("pprof listening on :6060")
+		http.ListenAndServe(":6060", nil)
+	}()
 
 	fmt.Printf("Starting server at %s:%d...\n", c.Host, c.Port)
 	server.Start()
