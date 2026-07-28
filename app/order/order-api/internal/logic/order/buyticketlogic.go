@@ -45,40 +45,32 @@ func (l *BuyTicketLogic) BuyTicket(req *types.BuyTicketReq) (*types.BuyTicketRes
 		return &types.BuyTicketResp{Status: "fail", Message: "缺少请求ID"}, nil
 	}
 
-	/*1. 限流
-	*用户级限流，对于单个用户，只允许一秒内最多五个购买请求到达
-	*令牌桶限流：初始50个token，每秒钟补10个，没有拿到令牌的请求不允许执行
+	/*1. 限流+令牌桶+分布式锁 — pipeline 合并 3 次 Redis 往返为 1 次
 	 */
-
-	limitkey := fmt.Sprintf("limit:buy:user:%d", userID)
-	ok, err := l.svcCtx.RateLimiter.Allow(l.ctx, limitkey, 5, time.Second)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return nil, xerr.NewErrMsg("请求过于频繁请稍后重试")
-	}
-
 	ticketTypeId := req.TicketTypeID
-	key := fmt.Sprintf("bucket:ticket:%d", ticketTypeId)
-	ok, err = l.svcCtx.TokenBucket.Allow(l.ctx, key, 200, 100)
-	if err != nil {
+
+	limitKey := fmt.Sprintf("limit:buy:user:%d", userID)
+	bucketKey := fmt.Sprintf("bucket:ticket:%d", ticketTypeId)
+	lockKey := fmt.Sprintf("lock:order:%d:%d:%d:%d", userID, req.EventID, req.ShowID, req.TicketTypeID)
+	lockValue := uuid.NewString()
+
+	pipe := l.svcCtx.Redis.Pipeline()
+	rateLimitCmd := pipe.Eval(l.ctx, redis.RateLimitLua, []string{limitKey}, int(time.Second.Seconds()), 5)
+	tokenBucketCmd := pipe.Eval(l.ctx, redis.TokenBucketLua, []string{bucketKey}, 200, 100, time.Now().Unix())
+	lockCmd := pipe.SetNX(l.ctx, lockKey, lockValue, 30*time.Second)
+
+	if _, err := pipe.Exec(l.ctx); err != nil {
 		return nil, err
-	}
-	if !ok {
-		return nil, xerr.NewErrMsg("请求过于频繁请稍后重试")
 	}
 
-	/*2. 分布式锁
-	*用户id+活动id+场次id+票种id，保证第一个请求处理的时候另一个请求到达不会处理
-	 */
-	lockKey := fmt.Sprintf("lock:order:%d:%d:%d:%d", userID, req.EventID, req.ShowID, req.TicketTypeID)
-	lockValue, err := l.svcCtx.Lock.Lock(l.ctx, lockKey, 30*time.Second)
-	if err != nil {
-		if err == redis.ErrLockFailed {
-			return &types.BuyTicketResp{Status: "fail", Message: "订单正在创建，请勿重复提交"}, nil
-		}
-		return nil, err
+	if rateLimitVal, _ := rateLimitCmd.Int(); rateLimitVal != 1 {
+		return nil, xerr.NewErrMsg("请求过于频繁请稍后重试")
+	}
+	if tokenVal, _ := tokenBucketCmd.Int(); tokenVal != 1 {
+		return nil, xerr.NewErrMsg("请求过于频繁请稍后重试")
+	}
+	if !lockCmd.Val() {
+		return &types.BuyTicketResp{Status: "fail", Message: "订单正在创建，请勿重复提交"}, nil
 	}
 	defer func() {
 		if unlockErr := l.svcCtx.Lock.Unlock(l.ctx, lockKey, lockValue); unlockErr != nil {

@@ -1,8 +1,6 @@
 Name: order-api
 Host: 0.0.0.0
-Port: 8894
-Telemetry:
-  Disabled: true
+Port: 8896
 BizRedis:
   Addr: "127.0.0.1:6379"
   Password: ""
