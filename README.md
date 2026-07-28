@@ -124,19 +124,6 @@ compensate:list                                       # 补偿记录列表
 
 ## 快速启动
 
-### 1. 前置依赖
-
-```bash
-# MySQL / Redis / etcd
-sudo apt install mysql-server redis-server etcd -y
-
-# RabbitMQ
-docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 \
-  -e RABBITMQ_DEFAULT_USER=admin -e RABBITMQ_DEFAULT_PASS=123456 \
-  rabbitmq:3-management
-```
-
-### 2. 启动服务
 
 ```bash
 make start          # 一键启动所有服务
@@ -144,39 +131,7 @@ make build          # 编译检查
 make stop           # 停止全部
 ```
 
-### 3. Nginx 负载均衡（可选，多实例用）
 
-```bash
-# 安装
-sudo apt install nginx
 
-# 把项目配置软链过去
-sudo ln -sf /home/xfdhm/Ticket/nginx/nginx.conf /etc/nginx/nginx.conf
-
-# 启动
-sudo nginx
-
-# 重载（修改配置后）
-sudo nginx -s reload
-
-# 停止
-sudo nginx -s stop
-```
-
-默认监听 8090。配置在 `nginx/nginx.conf`，3 台 order-api 轮询分发。非 80 端口无需 root，直接：
-
-```bash
-nginx -c /home/xfdhm/Ticket/nginx/nginx.conf
-```
-
-## 测试
-
-```bash
-go run test/idem/main.go                        # 幂等 + 分布式锁
-go run test/rate/main.go                        # 三层限流
-go run test/e2e/main.go                         # 端到端全链路
-go run test/bench/main.go -c 200 -n 50          # 压测: N人抢M张
-go run test/bench/main.go -c 200 -n 50 -raw -addr 127.0.0.1:8090  # 通过 Nginx
-```
 
 全接口 curl 手册见 [test/test.md](test/test.md)。
