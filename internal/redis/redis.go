@@ -2,35 +2,45 @@ package redis
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 )
 
-type RedisClient struct {
-	client *redis.Client
+// RedisConf 统一 Redis 配置
+type RedisConf struct {
+	MasterName    string   // sentinel 监控的 master 名称
+	SentinelAddrs []string // sentinel 地址列表
+	Password      string   `json:",optional"`
+	DB            int      `json:",default=0"`
 }
 
-// 初始化一个redis的client对象，一个server一个
-func InitRedis(addr, password string, db int) (*RedisClient, error) {
+type RedisClient struct {
+	client redis.UniversalClient
+}
 
-	client := redis.NewClient(&redis.Options{
-		Addr:         addr,
-		Password:     password,
-		DB:           db,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 5 * time.Second,
-		PoolSize:     100,
-		MinIdleConns: 10,
+// NewRedisClient 通过 Sentinel 连接 Redis，go-redis 自动处理主从发现和故障转移
+func NewRedisClient(c RedisConf) (*RedisClient, error) {
+	if c.MasterName == "" || len(c.SentinelAddrs) == 0 {
+		return nil, fmt.Errorf("MasterName and SentinelAddrs are required")
+	}
+	client := redis.NewFailoverClient(&redis.FailoverOptions{
+		MasterName:    c.MasterName,
+		SentinelAddrs: c.SentinelAddrs,
+		Password:      c.Password,
+		DB:            c.DB,
+		ReadTimeout:   5 * time.Second,
+		WriteTimeout:  5 * time.Second,
+		PoolSize:      100,
+		MinIdleConns:  10,
 	})
 
 	if err := client.Ping(context.Background()).Err(); err != nil {
 		return nil, err
 	}
 
-	return &RedisClient{
-		client: client,
-	}, nil
+	return &RedisClient{client: client}, nil
 }
 
 // 限定某个key在windows时间内最多访问limit次
@@ -75,7 +85,7 @@ func (r *RedisClient) Close() error {
 	return r.client.Close()
 }
 
-func (r *RedisClient) Client() *redis.Client {
+func (r *RedisClient) Client() redis.Cmdable {
 	return r.client
 }
 

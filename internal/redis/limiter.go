@@ -9,10 +9,10 @@ import (
 )
 
 type RateLimiter struct {
-	client *goredis.Client
+	client goredis.Cmdable
 }
 
-func NewRateLimiter(client *goredis.Client) *RateLimiter {
+func NewRateLimiter(client goredis.Cmdable) *RateLimiter {
 	return &RateLimiter{
 		client: client,
 	}

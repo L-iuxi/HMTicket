@@ -14,11 +14,11 @@ var (
 )
 
 type DistributedLock struct {
-	client *goredis.Client
+	client goredis.Cmdable
 }
 
 // 创建锁对象
-func NewDistributedLock(client *goredis.Client) *DistributedLock {
+func NewDistributedLock(client goredis.Cmdable) *DistributedLock {
 	return &DistributedLock{
 		client: client,
 	}

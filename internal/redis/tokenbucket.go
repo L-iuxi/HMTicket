@@ -9,10 +9,10 @@ import (
 )
 
 type TokenBucket struct {
-	client *redis.Client
+	client redis.Cmdable
 }
 
-func NewTokenBucket(client *redis.Client) *TokenBucket {
+func NewTokenBucket(client redis.Cmdable) *TokenBucket {
 	return &TokenBucket{
 		client: client,
 	}

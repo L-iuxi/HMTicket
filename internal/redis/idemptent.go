@@ -13,10 +13,10 @@ var (
 )
 
 type Idempotent struct {
-	client *goredis.Client
+	client goredis.Cmdable
 }
 
-func NewIdempotent(client *goredis.Client) *Idempotent {
+func NewIdempotent(client goredis.Cmdable) *Idempotent {
 	return &Idempotent{
 		client: client,
 	}
