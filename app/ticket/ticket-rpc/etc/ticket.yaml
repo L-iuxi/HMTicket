@@ -9,3 +9,7 @@ Mysql:
   MaxOpenConns: 20
   MaxIdleConns: 10
   ConnMaxLifetime: 300
+
+Telemetry:
+  Name: ticket-rpc
+  Endpoint: 127.0.0.1:4317

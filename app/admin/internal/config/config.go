@@ -4,6 +4,7 @@
 package config
 
 import (
+	"Ticket/internal/redis"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/zrpc"
 )
@@ -20,10 +21,6 @@ type Config struct {
 		MaxIdleConns    int
 		ConnMaxLifetime int
 	}
-	Redis struct {
-		Addr     string
-		Password string
-		DB       int
-	}
+	Redis    redis.RedisConf
 	EventRpc zrpc.RpcClientConf
 }

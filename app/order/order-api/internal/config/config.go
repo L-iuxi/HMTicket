@@ -6,15 +6,12 @@ package config
 import (
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/zrpc"
+	"Ticket/internal/redis"
 )
 
 type Config struct {
 	rest.RestConf
-	BizRedis struct {
-		Addr     string
-		Password string
-		DB       int
-	}
+	BizRedis     redis.RedisConf
 	OrderRpc     zrpc.RpcClientConf
 	InventoryRpc zrpc.RpcClientConf
 	PaymentRpc   zrpc.RpcClientConf

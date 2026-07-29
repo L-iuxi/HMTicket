@@ -10,7 +10,11 @@ Mysql:
   MaxIdleConns: 10
   ConnMaxLifetime: 300
 BizRedis:
-  Addr: "127.0.0.1:6379"
+  MasterName: "mymaster"
+  SentinelAddrs:
+    - "127.0.0.1:26379"
+    - "127.0.0.1:26380"
+    - "127.0.0.1:26381"
   Password: ""
   DB: 0
 InventoryRpc:
@@ -18,3 +22,7 @@ InventoryRpc:
     Hosts:
       - 127.0.0.1:2379
     Key: inventory.rpc
+
+Telemetry:
+  Name: order-rpc
+  Endpoint: 127.0.0.1:4317

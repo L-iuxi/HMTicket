@@ -36,11 +36,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 
 	db.Migrate(conn, &model.Order{})
 
-	redisClient, err := redis.InitRedis(
-		c.BizRedis.Addr,
-		c.BizRedis.Password,
-		c.BizRedis.DB,
-	)
+	redisClient, err := redis.NewRedisClient(c.BizRedis)
 	if err != nil {
 		panic(err)
 	}

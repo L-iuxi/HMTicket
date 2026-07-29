@@ -40,11 +40,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	}
 
 	//连接redis
-	redisClient, err := redis.InitRedis(
-		c.Redis.Addr,
-		c.Redis.Password,
-		c.Redis.DB,
-	)
+	redisClient, err := redis.NewRedisClient(c.Redis)
 	if err != nil {
 		panic(err)
 	}

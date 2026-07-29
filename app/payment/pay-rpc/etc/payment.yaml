@@ -5,6 +5,14 @@ Etcd:
   - 127.0.0.1:2379
   Key: payment.rpc
 BizRedis:
-  Addr: "127.0.0.1:6379"
+  MasterName: "mymaster"
+  SentinelAddrs:
+    - "127.0.0.1:26379"
+    - "127.0.0.1:26380"
+    - "127.0.0.1:26381"
   Password: ""
   DB: 0
+
+Telemetry:
+  Name: pay-rpc
+  Endpoint: 127.0.0.1:4317
