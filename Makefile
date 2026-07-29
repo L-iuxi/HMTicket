@@ -13,19 +13,19 @@ start:
 	@etcd > /dev/null 2>&1 &
 	@sleep 1
 	@echo "start redis master (6379)..."
-	@redis-server $(ROOT)/redis/redis-master.conf 2>/dev/null; true
+	@redis-server $(ROOT)/internal/redis/conf/redis-master.conf 2>/dev/null; true
 	@sleep 0.5
 	@echo "start redis slave (6380)..."
-	@redis-server $(ROOT)/redis/redis-slave.conf 2>/dev/null; true
+	@redis-server $(ROOT)/internal/redis/conf/redis-slave.conf 2>/dev/null; true
 	@sleep 0.5
 	@echo "start sentinel-1 (26379)..."
-	@redis-server $(ROOT)/redis/sentinel-1.conf --sentinel 2>/dev/null; true
+	@redis-server $(ROOT)/internal/redis/conf/sentinel-1.conf --sentinel 2>/dev/null; true
 	@sleep 0.5
 	@echo "start sentinel-2 (26380)..."
-	@redis-server $(ROOT)/redis/sentinel-2.conf --sentinel 2>/dev/null; true
+	@redis-server $(ROOT)/internal/redis/conf/sentinel-2.conf --sentinel 2>/dev/null; true
 	@sleep 0.5
 	@echo "start sentinel-3 (26381)..."
-	@redis-server $(ROOT)/redis/sentinel-3.conf --sentinel 2>/dev/null; true
+	@redis-server $(ROOT)/internal/redis/conf/sentinel-3.conf --sentinel 2>/dev/null; true
 	@echo "infra ready (etcd + redis sentinel 1M1S3S)"
 	@sleep 2
 	@echo ""
