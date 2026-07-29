@@ -1,13 +1,14 @@
-.PHONY: start-infra start-rpc start-rpc-cluster start-api start-all stop build clean
+.PHONY: start stop build clean
 
 ROOT := $(shell pwd)
 
 # 集群第二实例端口偏移
 PORT_OFFSET ?= 10000
 
-# ======== 基础设施 ========
+# ======== 一键启动（集群模式）========
 
-start-infra:
+start:
+	@echo "=== 启动基础设施 ==="
 	@echo "start etcd..."
 	@etcd > /dev/null 2>&1 &
 	@sleep 1
@@ -25,29 +26,24 @@ start-infra:
 	@sleep 0.5
 	@echo "start sentinel-3 (26381)..."
 	@redis-server $(ROOT)/redis/sentinel-3.conf --sentinel 2>/dev/null; true
-	@echo "infra ready (etcd + redis sentinel)"
-
-# ======== 启动 RPC（单实例）========
-
-start-rpc:
-	@echo "start event-rpc..."
+	@echo "infra ready (etcd + redis sentinel 1M1S3S)"
+	@sleep 2
+	@echo ""
+	@echo "=== 启动 RPC 集群（每服务 2 实例）==="
+	@echo "start event-rpc (instance 1)..."
 	cd $(ROOT)/app/event/event-rpc && go run event.go &
 	@sleep 1
-	@echo "start inventory-rpc..."
+	@echo "start inventory-rpc (instance 1)..."
 	cd $(ROOT)/app/inventory/inventory-rpc && go run inventory.go &
 	@sleep 1
-	@echo "start order-rpc..."
+	@echo "start order-rpc (instance 1)..."
 	cd $(ROOT)/app/order/order-rpc && go run order.go &
 	@sleep 1
-	@echo "start payment-rpc..."
+	@echo "start payment-rpc (instance 1)..."
 	cd $(ROOT)/app/payment/pay-rpc && go run payment.go &
 	@sleep 1
-	@echo "start ticket-rpc..."
+	@echo "start ticket-rpc (instance 1)..."
 	cd $(ROOT)/app/ticket/ticket-rpc && go run ticket.go &
-
-# ======== 启动 RPC 集群（每服务 2 实例）========
-
-start-rpc-cluster: start-rpc
 	@sleep 2
 	@echo "start event-rpc (instance 2)..."
 	cd $(ROOT)/app/event/event-rpc && go run event.go -port $$((8080 + $(PORT_OFFSET))) &
@@ -63,11 +59,11 @@ start-rpc-cluster: start-rpc
 	@sleep 0.5
 	@echo "start inventory-rpc (instance 2)..."
 	cd $(ROOT)/app/inventory/inventory-rpc && go run inventory.go -port $$((8084 + $(PORT_OFFSET))) &
-	@echo "RPC 集群启动完成（每服务 2 实例）"
-
-# ======== 启动 API（单实例）========
-
-start-api:
+	@sleep 2
+	@echo "RPC 集群启动完成（5 服务 × 2 实例 = 10 进程）"
+	@sleep 4
+	@echo ""
+	@echo "=== 启动 API（order-api 3 实例配合 nginx upstream）==="
 	@echo "start user-api..."
 	cd $(ROOT)/app/user && go run user.go &
 	@sleep 0.5
@@ -80,44 +76,33 @@ start-api:
 	@echo "start ticket-api..."
 	cd $(ROOT)/app/ticket/ticket-api && go run ticket.go &
 	@sleep 0.5
-	@echo "start order-api..."
+	@echo "start order-api (instance 1, port 8894)..."
 	cd $(ROOT)/app/order/order-api && go run order.go &
-	@sleep 0.5
-	@echo "start admin..."
-	cd $(ROOT)/app/admin && go run admin.go &
-
-# ======== 启动 API 集群（order-api 3 实例配合 nginx upstream）========
-
-start-api-cluster: start-api
-	@sleep 2
+	@sleep 1
 	@echo "start order-api (instance 2, port 8895)..."
 	cd $(ROOT)/app/order/order-api && go run order.go -f etc/order-api-8895.yaml &
 	@sleep 0.5
 	@echo "start order-api (instance 3, port 8896)..."
 	cd $(ROOT)/app/order/order-api && go run order.go -f etc/order-api-8896.yaml &
-	@echo "API 集群启动完成（order-api 3 实例，其余单实例）"
-
-# ======== 一键 ========
-
-start: start-infra
+	@sleep 0.5
+	@echo "start admin..."
+	cd $(ROOT)/app/admin && go run admin.go &
 	@sleep 2
-	@$(MAKE) start-rpc
-	@sleep 6
-	@$(MAKE) start-api
+	@echo ""
 	@echo "=== 全部启动完成 ==="
-
-start-cluster: start-infra
-	@sleep 2
-	@$(MAKE) start-rpc-cluster
-	@sleep 6
-	@$(MAKE) start-api-cluster
-	@echo "=== 集群模式启动完成 ==="
+	@echo "  API Gateway :8090 (nginx)"
+	@echo "  RPC        5 服务 × 2 实例"
+	@echo "  API        5 服务 × 1 实例 + order-api × 3 实例"
+	@echo "  Redis      1M 1S 3S (Sentinel)"
+	@echo "  etcd       单节点"
 
 # ======== 停止 ========
 
 stop:
 	@echo "killing all..."
 	@fuser -k 8888/tcp 8889/tcp 8890/tcp 8891/tcp 8892/tcp 8894/tcp 8895/tcp 8896/tcp 8080/tcp 8081/tcp 8082/tcp 8083/tcp 8084/tcp 18080/tcp 18081/tcp 18082/tcp 18083/tcp 18084/tcp 26379/tcp 26380/tcp 26381/tcp 2>/dev/null; true
+	@redis-cli -p 6379 shutdown 2>/dev/null; true
+	@redis-cli -p 6380 shutdown 2>/dev/null; true
 	@echo "done"
 
 # ======== 其他 ========
