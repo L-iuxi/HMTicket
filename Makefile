@@ -11,9 +11,21 @@ start-infra:
 	@echo "start etcd..."
 	@etcd > /dev/null 2>&1 &
 	@sleep 1
-	@echo "start redis..."
-	@redis-server --daemonize yes 2>/dev/null; true
-	@echo "infra ready"
+	@echo "start redis master (6379)..."
+	@redis-server $(ROOT)/redis/redis-master.conf 2>/dev/null; true
+	@sleep 0.5
+	@echo "start redis slave (6380)..."
+	@redis-server $(ROOT)/redis/redis-slave.conf 2>/dev/null; true
+	@sleep 0.5
+	@echo "start sentinel-1 (26379)..."
+	@redis-server $(ROOT)/redis/sentinel-1.conf --sentinel 2>/dev/null; true
+	@sleep 0.5
+	@echo "start sentinel-2 (26380)..."
+	@redis-server $(ROOT)/redis/sentinel-2.conf --sentinel 2>/dev/null; true
+	@sleep 0.5
+	@echo "start sentinel-3 (26381)..."
+	@redis-server $(ROOT)/redis/sentinel-3.conf --sentinel 2>/dev/null; true
+	@echo "infra ready (etcd + redis sentinel)"
 
 # ======== 启动 RPC（单实例）========
 
@@ -53,7 +65,7 @@ start-rpc-cluster: start-rpc
 	cd $(ROOT)/app/inventory/inventory-rpc && go run inventory.go -port $$((8084 + $(PORT_OFFSET))) &
 	@echo "RPC 集群启动完成（每服务 2 实例）"
 
-# ======== 启动 API ========
+# ======== 启动 API（单实例）========
 
 start-api:
 	@echo "start user-api..."
@@ -74,6 +86,17 @@ start-api:
 	@echo "start admin..."
 	cd $(ROOT)/app/admin && go run admin.go &
 
+# ======== 启动 API 集群（order-api 3 实例配合 nginx upstream）========
+
+start-api-cluster: start-api
+	@sleep 2
+	@echo "start order-api (instance 2, port 8895)..."
+	cd $(ROOT)/app/order/order-api && go run order.go -f etc/order-api-8895.yaml &
+	@sleep 0.5
+	@echo "start order-api (instance 3, port 8896)..."
+	cd $(ROOT)/app/order/order-api && go run order.go -f etc/order-api-8896.yaml &
+	@echo "API 集群启动完成（order-api 3 实例，其余单实例）"
+
 # ======== 一键 ========
 
 start: start-infra
@@ -87,14 +110,14 @@ start-cluster: start-infra
 	@sleep 2
 	@$(MAKE) start-rpc-cluster
 	@sleep 6
-	@$(MAKE) start-api
+	@$(MAKE) start-api-cluster
 	@echo "=== 集群模式启动完成 ==="
 
 # ======== 停止 ========
 
 stop:
 	@echo "killing all..."
-	@fuser -k 8888/tcp 8889/tcp 8890/tcp 8891/tcp 8892/tcp 8894/tcp 8895/tcp 8080/tcp 8081/tcp 8082/tcp 8083/tcp 8084/tcp 18080/tcp 18081/tcp 18082/tcp 18083/tcp 18084/tcp 2>/dev/null; true
+	@fuser -k 8888/tcp 8889/tcp 8890/tcp 8891/tcp 8892/tcp 8894/tcp 8895/tcp 8896/tcp 8080/tcp 8081/tcp 8082/tcp 8083/tcp 8084/tcp 18080/tcp 18081/tcp 18082/tcp 18083/tcp 18084/tcp 26379/tcp 26380/tcp 26381/tcp 2>/dev/null; true
 	@echo "done"
 
 # ======== 其他 ========
