@@ -10,10 +10,10 @@ import (
 
 // RedisConf 统一 Redis 配置
 type RedisConf struct {
-	MasterName    string   // sentinel 监控的 master 名称
-	SentinelAddrs []string // sentinel 地址列表
-	Password      string   `json:",optional"`
-	DB            int      `json:",default=0"`
+	MasterName    string
+	SentinelAddrs []string
+	Password      string
+	DB            int
 }
 
 type RedisClient struct {
