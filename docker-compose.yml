@@ -1,0 +1,478 @@
+# docker-compose.yml — HMTicket 全量编排（25 容器）
+#
+# ============================================================
+# 重要：避免 OOM 崩溃
+# ============================================================
+# 不要直接 `docker compose up -d`，会并行编译 11 个 Go 服务导致内存爆掉。
+# 正确启动步骤：
+#
+#   1. 先构建镜像（限制并行数）：
+#      COMPOSE_PARALLEL_LIMIT=2 docker compose build
+#
+#   2. 再启动容器：
+#      docker compose up -d
+#
+# 若还是崩，降为逐个构建：
+#   docker compose build --no-cache event-rpc && docker compose build --no-cache ticket-rpc ...
+#
+# 停止: docker compose down -v
+
+x-common-env: &common-env
+  MYSQL_HOST: mysql
+  ETCD_HOST: etcd
+  OTEL_HOST: otel-collector
+  REDIS_S1_HOST: sentinel-1
+  REDIS_S2_HOST: sentinel-2
+  REDIS_S3_HOST: sentinel-3
+
+services:
+  # ============================================================
+  # 基础设施
+  # ============================================================
+
+  mysql:
+    image: mysql:8.0
+    container_name: ticket-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "123456"
+      MYSQL_DATABASE: "ticket"
+    ports:
+      - "3307:3306"   # 宿主机 3307 映射到容器 3306，避免和本机 MySQL 冲突
+    volumes:
+      - mysql-data:/var/lib/mysql
+    # 限制 mysqld 内存，防止 OOM killer
+    command: >
+      --innodb-buffer-pool-size=268435456
+      --innodb-log-buffer-size=33554432
+      --max-connections=50
+      --performance-schema=OFF
+    mem_limit: 512M
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+    networks:
+      - ticket-net
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.16
+    container_name: ticket-etcd
+    entrypoint: etcd
+    command: >
+      --advertise-client-urls=http://etcd:2379
+      --listen-client-urls=http://0.0.0.0:2379
+    ports:
+      - "2379:2379"
+    mem_limit: 128M
+    networks:
+      - ticket-net
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: ticket-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: "admin"
+      RABBITMQ_DEFAULT_PASS: "123456"
+    ports:
+      - "5672:5672"
+      - "15672:15672"   # 管理界面
+    mem_limit: 384M
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+    networks:
+      - ticket-net
+
+  redis-master:
+    image: redis:7-alpine
+    container_name: ticket-redis-master
+    command: redis-server --port 6379 --save 900 1 --save 300 10 --maxmemory 128mb --maxmemory-policy noeviction
+    ports:
+      - "6381:6379"   # 宿主机 6381，避免和本机 Redis 6379 冲突
+    mem_limit: 192M
+    networks:
+      - ticket-net
+
+  redis-slave:
+    image: redis:7-alpine
+    container_name: ticket-redis-slave
+    command: redis-server --port 6380 --replicaof redis-master 6379 --maxmemory 128mb --maxmemory-policy noeviction
+    ports:
+      - "6380:6380"
+    mem_limit: 192M
+    depends_on:
+      - redis-master
+    networks:
+      - ticket-net
+
+  sentinel-1:
+    image: redis:7-alpine
+    container_name: ticket-sentinel-1
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        MASTER_IP=$$(getent hosts redis-master | awk '{print $$1}')
+        echo "sentinel monitor mymaster $$MASTER_IP 6379 2" >> /etc/sentinel.conf
+        echo "sentinel down-after-milliseconds mymaster 5000" >> /etc/sentinel.conf
+        echo "sentinel failover-timeout mymaster 10000" >> /etc/sentinel.conf
+        exec redis-server /etc/sentinel.conf --sentinel
+    volumes:
+      - ./internal/redis/conf/docker-sentinel-26379.conf:/etc/sentinel.conf
+    ports:
+      - "26379:26379"
+    mem_limit: 64M
+    depends_on:
+      - redis-master
+      - redis-slave
+    networks:
+      - ticket-net
+
+  sentinel-2:
+    image: redis:7-alpine
+    container_name: ticket-sentinel-2
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        MASTER_IP=$$(getent hosts redis-master | awk '{print $$1}')
+        echo "sentinel monitor mymaster $$MASTER_IP 6379 2" >> /etc/sentinel.conf
+        echo "sentinel down-after-milliseconds mymaster 5000" >> /etc/sentinel.conf
+        echo "sentinel failover-timeout mymaster 10000" >> /etc/sentinel.conf
+        exec redis-server /etc/sentinel.conf --sentinel
+    volumes:
+      - ./internal/redis/conf/docker-sentinel-26380.conf:/etc/sentinel.conf
+    ports:
+      - "26380:26380"
+    mem_limit: 64M
+    depends_on:
+      - redis-master
+      - redis-slave
+    networks:
+      - ticket-net
+
+  sentinel-3:
+    image: redis:7-alpine
+    container_name: ticket-sentinel-3
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        MASTER_IP=$$(getent hosts redis-master | awk '{print $$1}')
+        echo "sentinel monitor mymaster $$MASTER_IP 6379 2" >> /etc/sentinel.conf
+        echo "sentinel down-after-milliseconds mymaster 5000" >> /etc/sentinel.conf
+        echo "sentinel failover-timeout mymaster 10000" >> /etc/sentinel.conf
+        exec redis-server /etc/sentinel.conf --sentinel
+    volumes:
+      - ./internal/redis/conf/docker-sentinel-26381.conf:/etc/sentinel.conf
+    ports:
+      - "26381:26381"
+    mem_limit: 64M
+    depends_on:
+      - redis-master
+      - redis-slave
+    networks:
+      - ticket-net
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: ticket-otel
+    ports:
+      - "4317:4317"
+    mem_limit: 128M
+    networks:
+      - ticket-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: ticket-nginx
+    volumes:
+      - ./nginx/nginx-docker.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8090:80"
+    mem_limit: 256M
+    depends_on:
+      - user-api
+      - admin-api
+      - event-api
+      - inventory-api
+      - ticket-api
+      - order-api-1
+      - order-api-2
+      - order-api-3
+    networks:
+      - ticket-net
+
+  # ============================================================
+  # RPC 服务
+  # ============================================================
+
+  event-rpc:
+    build:
+      context: .
+      args:
+        APP_PATH: app/event/event-rpc
+        CONF_FILE: etc/event.yaml
+    image: ticket:event-rpc
+    container_name: ticket-event-rpc
+    environment:
+      <<: *common-env
+    mem_limit: 128M
+    depends_on:
+      mysql:
+        condition: service_healthy
+      etcd:
+        condition: service_started
+      sentinel-1:
+        condition: service_started
+    networks:
+      - ticket-net
+
+  ticket-rpc:
+    build:
+      context: .
+      args:
+        APP_PATH: app/ticket/ticket-rpc
+        CONF_FILE: etc/ticket.yaml
+    image: ticket:ticket-rpc
+    container_name: ticket-ticket-rpc
+    environment:
+      <<: *common-env
+    mem_limit: 128M
+    depends_on:
+      mysql:
+        condition: service_healthy
+      etcd:
+        condition: service_started
+    networks:
+      - ticket-net
+
+  pay-rpc:
+    build:
+      context: .
+      args:
+        APP_PATH: app/payment/pay-rpc
+        CONF_FILE: etc/payment.yaml
+    image: ticket:pay-rpc
+    container_name: ticket-pay-rpc
+    environment:
+      <<: *common-env
+    mem_limit: 128M
+    depends_on:
+      etcd:
+        condition: service_started
+      sentinel-1:
+        condition: service_started
+    networks:
+      - ticket-net
+
+  inventory-rpc:
+    build:
+      context: .
+      args:
+        APP_PATH: app/inventory/inventory-rpc
+        CONF_FILE: etc/inventory.yaml
+    image: ticket:inventory-rpc
+    container_name: ticket-inventory-rpc
+    environment:
+      <<: *common-env
+    mem_limit: 128M
+    depends_on:
+      etcd:
+        condition: service_started
+      sentinel-1:
+        condition: service_started
+    networks:
+      - ticket-net
+
+  order-rpc:
+    build:
+      context: .
+      args:
+        APP_PATH: app/order/order-rpc
+        CONF_FILE: etc/order.yaml
+    image: ticket:order-rpc
+    container_name: ticket-order-rpc
+    environment:
+      <<: *common-env
+      RABBITMQ_URL: "amqp://admin:123456@rabbitmq:5672/"
+    mem_limit: 128M
+    depends_on:
+      mysql:
+        condition: service_healthy
+      etcd:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      sentinel-1:
+        condition: service_started
+    networks:
+      - ticket-net
+
+  # ============================================================
+  # API 服务
+  # ============================================================
+
+  user-api:
+    build:
+      context: .
+      args:
+        APP_PATH: app/user
+        CONF_FILE: etc/user-api.yaml
+    image: ticket:user-api
+    container_name: ticket-user-api
+    environment:
+      <<: *common-env
+    mem_limit: 128M
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - ticket-net
+
+  admin-api:
+    build:
+      context: .
+      args:
+        APP_PATH: app/admin
+        CONF_FILE: etc/admin-api.yaml
+    image: ticket:admin-api
+    container_name: ticket-admin-api
+    environment:
+      <<: *common-env
+    mem_limit: 128M
+    depends_on:
+      mysql:
+        condition: service_healthy
+      etcd:
+        condition: service_started
+      sentinel-1:
+        condition: service_started
+    networks:
+      - ticket-net
+
+  event-api:
+    build:
+      context: .
+      args:
+        APP_PATH: app/event/event-api
+        CONF_FILE: etc/event-api.yaml
+    image: ticket:event-api
+    container_name: ticket-event-api
+    environment:
+      <<: *common-env
+    mem_limit: 128M
+    depends_on:
+      etcd:
+        condition: service_started
+    networks:
+      - ticket-net
+
+  inventory-api:
+    build:
+      context: .
+      args:
+        APP_PATH: app/inventory/inventory-api
+        CONF_FILE: etc/inventory-api.yaml
+    image: ticket:inventory-api
+    container_name: ticket-inventory-api
+    environment:
+      <<: *common-env
+    mem_limit: 128M
+    depends_on:
+      etcd:
+        condition: service_started
+    networks:
+      - ticket-net
+
+  ticket-api:
+    build:
+      context: .
+      args:
+        APP_PATH: app/ticket/ticket-api
+        CONF_FILE: etc/ticket-api.yaml
+    image: ticket:ticket-api
+    container_name: ticket-ticket-api
+    environment:
+      <<: *common-env
+    mem_limit: 128M
+    depends_on:
+      mysql:
+        condition: service_healthy
+      etcd:
+        condition: service_started
+    networks:
+      - ticket-net
+
+  order-api-1:
+    build:
+      context: .
+      args:
+        APP_PATH: app/order/order-api
+        CONF_FILE: etc/order-api.yaml
+    image: ticket:order-api-1
+    container_name: ticket-order-api-1
+    environment:
+      <<: *common-env
+      RABBITMQ_URL: "amqp://admin:123456@rabbitmq:5672/"
+    mem_limit: 128M
+    depends_on:
+      etcd:
+        condition: service_started
+      sentinel-1:
+        condition: service_started
+    networks:
+      - ticket-net
+
+  order-api-2:
+    build:
+      context: .
+      args:
+        APP_PATH: app/order/order-api
+        CONF_FILE: etc/order-api-8895.yaml
+    image: ticket:order-api-2
+    container_name: ticket-order-api-2
+    environment:
+      <<: *common-env
+      RABBITMQ_URL: "amqp://admin:123456@rabbitmq:5672/"
+    mem_limit: 128M
+    depends_on:
+      etcd:
+        condition: service_started
+      sentinel-1:
+        condition: service_started
+    networks:
+      - ticket-net
+
+  order-api-3:
+    build:
+      context: .
+      args:
+        APP_PATH: app/order/order-api
+        CONF_FILE: etc/order-api-8896.yaml
+    image: ticket:order-api-3
+    container_name: ticket-order-api-3
+    environment:
+      <<: *common-env
+      RABBITMQ_URL: "amqp://admin:123456@rabbitmq:5672/"
+    mem_limit: 128M
+    depends_on:
+      etcd:
+        condition: service_started
+      sentinel-1:
+        condition: service_started
+    networks:
+      - ticket-net
+
+# ============================================================
+# 持久化卷 + 网络
+# ============================================================
+
+volumes:
+  mysql-data:
+
+networks:
+  ticket-net:
+    driver: bridge
