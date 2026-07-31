@@ -1,6 +1,8 @@
 package mq
 
 import (
+	"os"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -14,6 +16,10 @@ type RabbitMQ struct {
 func NewRabbitMQ(brokerURL string) (*RabbitMQ, error) {
 	if brokerURL == "" {
 		brokerURL = DefaultBrokerURL
+		// Docker 环境：优先读环境变量 RABBITMQ_URL
+		if url := os.Getenv("RABBITMQ_URL"); url != "" {
+			brokerURL = url
+		}
 	}
 
 	conn, err := amqp.Dial(brokerURL)
