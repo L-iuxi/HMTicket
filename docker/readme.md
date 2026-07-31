@@ -81,3 +81,20 @@ docker commit dockerid imagename version
 | LABEL | 添加镜像元数据 | 构建阶段 | 否 | 添加作者、版本等信息 |
 | HEALTHCHECK | 健康检查 | 运行阶段 | 否 | 判断服务是否正常 |
 | ONBUILD | 设置镜像被继承时执行命令 | 构建阶段 | 否 | 制作基础镜像 |
+
+
+**端口映射：**
+
+| 宿主机端口 | 容器端口 | 服务 |
+|-----------|---------|------|
+| 8090 | 80 | Nginx 统一入口 |
+| 3307 | 3306 | MySQL |
+| 2379 | 2379 | etcd |
+| 6381 | 6379 | Redis Master |
+| 6380 | 6380 | Redis Slave |
+| 26379-26381 | 26379-26381 | Redis Sentinel ×3 |
+| 5672 | 5672 | RabbitMQ |
+| 15672 | 15672 | RabbitMQ 管理界面 |
+| 4317 | 4317 | OpenTelemetry Collector |
+
+> 端口映射避开宿主机常用端口。如宿主机有 etcd/MySQL/Redis 占用，冲突容器会卡在 `Created` 状态。`sudo fuser -k 2379/tcp` 释放端口再 `docker compose up -d`。
