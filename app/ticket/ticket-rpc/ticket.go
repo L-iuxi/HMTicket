@@ -26,7 +26,7 @@ func main() {
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
 	if *port > 0 {
-		c.ListenOn = fmt.Sprintf("0.0.0.0:%d", *port)
+		c.ListenOn = fmt.Sprintf("127.0.0.1:%d", *port)
 	}
 	ctx := svc.NewServiceContext(c)
 
