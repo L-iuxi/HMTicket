@@ -1,14 +1,5 @@
 ## 测试手册
-此处测试为基本接口测试，
-限流测试——ratelimit_test.sh
-幂等、分布式锁测试——idempotent_test.sh
-```
-go run test/idem/main.go
-go run test/rate/main.go
-go run test/e2e/main.go
-go run test/bench/main.go -c 200 -n 50
 
-```
 ### 前置安装
 需要redis-server，mysql，etcd，rabbitMQ,nginx在终端执行如下命令安装：
 ```bash
@@ -47,7 +38,52 @@ sudo nginx -s stop
   make stop        # 杀掉全部
   make build       # 检查编译
 ```
+### Jaeger 链路追踪
 
+```bash
+docker run -d --name jaeger -p 4317:4317 -p 16686:16686 jaegertracing/all-in-one:latest
+```
+
+浏览器打开 `http://127.0.0.1:16686` 查看调用链。
+### 压测
+
+跑压测需要一个管理员账号
+
+**MySQL 无 admin 账号：**
+```bash
+# 先注册用户
+curl -X POST http://127.0.0.1:8090/api/user/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"123456","email":"admin@ticket.com"}'
+
+# 改 role 为 admin
+docker exec -it ticket-mysql mysql -uroot -p123456 ticket \
+  -e "UPDATE users SET role='admin' WHERE username='admin';"
+```
+**压力测试**
+```bash
+# 走 Nginx（推荐，模拟生产环境）
+go run test/bench/main.go -c 300 -n 20 -addr 127.0.0.1:8090
+
+# 直连服务端口（跳过 Nginx）
+go run test/bench/main.go -c 300 -n 20
+
+# raw 模式：无客户端限速，打满 QPS
+go run test/bench/main.go -c 300 -n 20 -raw -addr 127.0.0.1:8090
+```
+| 参数 | 说明 |
+|------|------|
+| `-c` | 并发用户数 |
+| `-n` | 库存票数 |
+| `-addr` | Nginx 地址，如 `127.0.0.1:8090` |
+| `-raw` | 裸测模式，去掉客户端 100ms sleep，打满 QPS |
+| `-t` | 抢购超时秒数，默认 30s |
+
+
+测试结果报告见[bench.md](bench.md)。
+
+### 普通测试
+*以下测试在本机测试端口为各服务端口，如果在容器内测试统一端口为nginx端口：8090*
 ### user包
 **注册：**
 ```bash
