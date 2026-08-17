@@ -24,6 +24,7 @@ var (
 	tickets     = flag.Int("n", 50, "库存票数")
 	timeout     = flag.Duration("t", 30*time.Second, "重试超时")
 	raw         = flag.Bool("raw", false, "裸测：去掉 sleep，打满 QPS")
+	sustain     = flag.Bool("sustain", false, "持续买：成功后继续买，直到库存耗尽（测稳定吞吐）")
 	addr        = flag.String("addr", "", "Nginx 地址，如 127.0.0.1:8090（走 Nginx 统一入口）")
 )
 
@@ -218,7 +219,9 @@ func main() {
 					if n%10 == 0 || n <= 3 || n >= int64(*tickets-2) {
 						fmt.Printf("  #%d 卖出 (用户%d 尝试%d次 %.2fs)\n", n, idx, seq, time.Since(start).Seconds())
 					}
-					return
+					if !*sustain {
+						return
+					}
 				}
 				if !*raw {
 					time.Sleep(100 * time.Millisecond)
