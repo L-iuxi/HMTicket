@@ -16,6 +16,21 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		[]rest.Route{
 			{
 				Method:  http.MethodGet,
+				Path:    "/event/list",
+				Handler: GetEventListHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/show/list",
+				Handler: GetShowListHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/ticket-type/list",
+				Handler: GetTicketTypeListHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
 				Path:    "/event/:eventId",
 				Handler: GetEventHandler(serverCtx),
 			},

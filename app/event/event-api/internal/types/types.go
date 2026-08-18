@@ -58,3 +58,62 @@ type TicketTypeDetail struct {
 	Price        float64
 	Stock        int32
 }
+
+// ===================== List =====================
+
+type GetEventListReq struct{}
+
+type EventListItem struct {
+	EventID     int64
+	Title       string
+	Description string
+	Location    string
+	CoverImage  string
+	StartTime   int64
+	EndTime     int64
+	Status      string
+	TotalStock  int32
+}
+
+type GetEventListResp struct {
+	Events []EventListItem
+}
+
+type GetShowListReq struct {
+	EventId int64 `form:"eventId"`
+}
+
+type ShowListItem struct {
+	ShowID    int64
+	EventID   int64
+	Name      string
+	ShowTime  string
+	EndTime   string
+	Status    string
+	SoldCount int32
+	SortOrder int32
+	Venue     string
+}
+
+type GetShowListResp struct {
+	Shows []ShowListItem
+}
+
+type GetTicketTypeListReq struct {
+	ShowId int64 `form:"showId"`
+}
+
+type TicketTypeListItem struct {
+	TicketTypeID int64
+	EventID      int64
+	ShowID       int64
+	Name         string
+	Price        float64
+	Stock        int32
+	MaxPerUser   int32
+	SortOrder    int32
+}
+
+type GetTicketTypeListResp struct {
+	TicketTypes []TicketTypeListItem
+}

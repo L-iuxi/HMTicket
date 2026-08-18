@@ -71,9 +71,68 @@ type (
         Price        float64
         Stock        int32
     }
+
+    // ===================== List =====================
+    GetEventListReq  {}
+    EventListItem {
+        EventID     int64
+        Title       string
+        Description string
+        Location    string
+        CoverImage  string
+        StartTime   int64
+        EndTime     int64
+        Status      string
+        TotalStock  int32
+    }
+    GetEventListResp {
+        Events []EventListItem
+    }
+    GetShowListReq {
+        EventId int64 `form:"eventId"`
+    }
+    ShowListItem {
+        ShowID    int64
+        EventID   int64
+        Name      string
+        ShowTime  string
+        EndTime   string
+        Status    string
+        SoldCount int32
+        SortOrder int32
+        Venue     string
+    }
+    GetShowListResp {
+        Shows []ShowListItem
+    }
+    GetTicketTypeListReq {
+        ShowId int64 `form:"showId"`
+    }
+    TicketTypeListItem {
+        TicketTypeID int64
+        EventID      int64
+        ShowID       int64
+        Name         string
+        Price        float64
+        Stock        int32
+        MaxPerUser   int32
+        SortOrder    int32
+    }
+    GetTicketTypeListResp {
+        TicketTypes []TicketTypeListItem
+    }
 )
 
 service event-api {
+
+    @handler GetEventList
+    get /event/list (GetEventListReq) returns (GetEventListResp)
+
+    @handler GetShowList
+    get /show/list (GetShowListReq) returns (GetShowListResp)
+
+    @handler GetTicketTypeList
+    get /ticket-type/list (GetTicketTypeListReq) returns (GetTicketTypeListResp)
 
     @handler GetEvent
     get /event/:eventId (GetEventReq) returns (GetEventResp)

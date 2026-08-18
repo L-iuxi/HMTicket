@@ -61,5 +61,6 @@ func (l *ProfileLogic) Profile() (*types.UserProfileResp, error) {
 		Phone:    user.Phone,
 		Gender:   gender,
 		UserId:   user.UserID,
+		Role:     user.Role,
 	}, nil
 }
