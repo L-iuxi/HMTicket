@@ -1,0 +1,230 @@
+:root {
+  /* 主黄 */
+  --yellow-600: #E6A000;
+  --yellow-500: #FFB800;
+  --yellow-400: #FFC733;
+  --yellow-300: #FFD966;
+  --yellow-200: #FFEBA3;
+  --yellow-100: #FFF5D1;
+  --ink: #2B2200;
+  --ink-soft: #7A6A24;
+  --cream: #FFF7DF;
+
+  /* Element Plus 主题改黄 */
+  --el-color-primary: #FFB800;
+  --el-color-primary-light-3: #FFC733;
+  --el-color-primary-light-5: #FFD966;
+  --el-color-primary-light-7: #FFEBA3;
+  --el-color-primary-light-8: #FFF1BF;
+  --el-color-primary-light-9: #FFF5D1;
+  --el-color-primary-dark-2: #E6A000;
+  --el-color-warning: #FFB800;
+  --el-color-warning-light-3: #FFC733;
+  --el-color-warning-light-5: #FFD966;
+  --el-color-warning-light-7: #FFEBA3;
+  --el-color-warning-light-9: #FFF5D1;
+  --el-border-radius-base: 12px;
+  --el-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  color: var(--ink);
+  font-family: var(--el-font-family);
+  background-color: var(--cream);
+  background-image: radial-gradient(rgba(255, 184, 0, 0.32) 2px, transparent 2px);
+  background-size: 26px 26px;
+}
+
+#app { min-height: 100vh; }
+
+a { color: inherit; text-decoration: none; }
+
+/* ===== 玻璃卡片 ===== */
+.glass-card {
+  background: rgba(255, 255, 255, 0.74);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 20px;
+  box-shadow: 0 12px 34px rgba(43, 34, 0, 0.10);
+}
+
+/* ===== 玻璃按钮 ===== */
+.glass-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(255, 184, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
+  user-select: none;
+}
+.glass-btn:hover {
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 12px 26px rgba(255, 184, 0, 0.26);
+}
+.glass-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 4px 10px rgba(255, 184, 0, 0.20);
+}
+.glass-btn.primary {
+  background: rgba(255, 184, 0, 0.88);
+  border-color: rgba(255, 184, 0, 0.6);
+}
+.glass-btn.primary:hover {
+  background: rgba(255, 196, 51, 0.92);
+}
+.glass-btn.danger {
+  color: #B3261E;
+  background: rgba(255, 240, 240, 0.6);
+}
+.glass-btn.ghost {
+  background: transparent;
+  box-shadow: none;
+}
+.glass-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+.glass-btn.block { width: 100%; }
+.glass-btn.sm { padding: 8px 16px; font-size: 13px; }
+
+/* ===== 玻璃导航栏 ===== */
+.glass-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 14px 32px;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border-bottom: 1px solid rgba(255, 184, 0, 0.25);
+}
+.glass-nav .brand {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--ink);
+}
+.glass-nav .spacer { flex: 1; }
+.glass-nav .nav-link {
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  transition: all 0.15s ease;
+}
+.glass-nav .nav-link:hover { background: rgba(255, 184, 0, 0.16); color: var(--ink); }
+.glass-nav .nav-link.active { background: rgba(255, 184, 0, 0.28); color: var(--ink); }
+
+/* ===== 页面容器 ===== */
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+}
+.page-title {
+  font-size: 26px;
+  font-weight: 800;
+  margin: 0 0 20px;
+  letter-spacing: -0.5px;
+}
+
+/* ===== 活动卡片墙 ===== */
+.event-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+.event-card {
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.event-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 22px 44px rgba(43, 34, 0, 0.16);
+}
+.event-card .cover {
+  height: 170px;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+.event-card .cover.is-default {
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+.event-card .cover .status-tag {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(8px);
+  color: var(--ink);
+}
+.event-card .body { padding: 16px 18px 18px; }
+.event-card .title { font-size: 18px; font-weight: 800; margin: 0 0 8px; }
+.event-card .meta { font-size: 13px; color: var(--ink-soft); line-height: 1.7; }
+
+/* ===== 标签 ===== */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.tag.yellow { background: rgba(255, 184, 0, 0.22); color: #8a6400; }
+.tag.green { background: rgba(52, 168, 83, 0.15); color: #1e7e34; }
+.tag.red { background: rgba(217, 48, 37, 0.12); color: #b3261e; }
+.tag.gray { background: rgba(0, 0, 0, 0.06); color: #6b6b6b; }
+
+/* ===== 表单玻璃容器 ===== */
+.auth-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 36px 34px;
+}
+
+/* ===== 列表表格行内操作 ===== */
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Element Plus 组件微调 */
+.el-button { border-radius: 999px; font-weight: 600; }
+.el-dialog { border-radius: 20px; }
+.el-input__wrapper, .el-textarea__inner { border-radius: 12px; }
+.el-table { border-radius: 16px; overflow: hidden; }
