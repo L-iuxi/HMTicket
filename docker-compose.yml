@@ -64,7 +64,7 @@ services:
       --advertise-client-urls=http://etcd:2379
       --listen-client-urls=http://0.0.0.0:2379
     ports:
-      - "2379:2379"
+      - "12379:2379"   # 宿主机 12379，避开本机 systemd etcd 占用的 2379
     mem_limit: 128M
     networks:
       - ticket-net
@@ -94,6 +94,8 @@ services:
     command: redis-server --port 6379 --save 900 1 --save 300 10 --maxmemory 128mb --maxmemory-policy noeviction
     ports:
       - "6381:6379"   # 宿主机 6381，避免和本机 Redis 6379 冲突
+    volumes:
+      - redis-master-data:/data
     mem_limit: 192M
     networks:
       - ticket-net
@@ -104,6 +106,8 @@ services:
     command: redis-server --port 6380 --replicaof redis-master 6379 --maxmemory 128mb --maxmemory-policy noeviction
     ports:
       - "6380:6380"
+    volumes:
+      - redis-slave-data:/data
     mem_limit: 192M
     depends_on:
       - redis-master
@@ -117,10 +121,11 @@ services:
     command:
       - |
         MASTER_IP=$$(getent hosts redis-master | awk '{print $$1}')
-        echo "sentinel monitor mymaster $$MASTER_IP 6379 2" >> /etc/sentinel.conf
-        echo "sentinel down-after-milliseconds mymaster 5000" >> /etc/sentinel.conf
-        echo "sentinel failover-timeout mymaster 10000" >> /etc/sentinel.conf
-        exec redis-server /etc/sentinel.conf --sentinel
+        cp /etc/sentinel.conf /tmp/sentinel.conf
+        echo "sentinel monitor mymaster $$MASTER_IP 6379 2" >> /tmp/sentinel.conf
+        echo "sentinel down-after-milliseconds mymaster 5000" >> /tmp/sentinel.conf
+        echo "sentinel failover-timeout mymaster 10000" >> /tmp/sentinel.conf
+        exec redis-server /tmp/sentinel.conf --sentinel
     volumes:
       - ./internal/redis/conf/docker-sentinel-26379.conf:/etc/sentinel.conf
     ports:
@@ -139,10 +144,11 @@ services:
     command:
       - |
         MASTER_IP=$$(getent hosts redis-master | awk '{print $$1}')
-        echo "sentinel monitor mymaster $$MASTER_IP 6379 2" >> /etc/sentinel.conf
-        echo "sentinel down-after-milliseconds mymaster 5000" >> /etc/sentinel.conf
-        echo "sentinel failover-timeout mymaster 10000" >> /etc/sentinel.conf
-        exec redis-server /etc/sentinel.conf --sentinel
+        cp /etc/sentinel.conf /tmp/sentinel.conf
+        echo "sentinel monitor mymaster $$MASTER_IP 6379 2" >> /tmp/sentinel.conf
+        echo "sentinel down-after-milliseconds mymaster 5000" >> /tmp/sentinel.conf
+        echo "sentinel failover-timeout mymaster 10000" >> /tmp/sentinel.conf
+        exec redis-server /tmp/sentinel.conf --sentinel
     volumes:
       - ./internal/redis/conf/docker-sentinel-26380.conf:/etc/sentinel.conf
     ports:
@@ -161,10 +167,11 @@ services:
     command:
       - |
         MASTER_IP=$$(getent hosts redis-master | awk '{print $$1}')
-        echo "sentinel monitor mymaster $$MASTER_IP 6379 2" >> /etc/sentinel.conf
-        echo "sentinel down-after-milliseconds mymaster 5000" >> /etc/sentinel.conf
-        echo "sentinel failover-timeout mymaster 10000" >> /etc/sentinel.conf
-        exec redis-server /etc/sentinel.conf --sentinel
+        cp /etc/sentinel.conf /tmp/sentinel.conf
+        echo "sentinel monitor mymaster $$MASTER_IP 6379 2" >> /tmp/sentinel.conf
+        echo "sentinel down-after-milliseconds mymaster 5000" >> /tmp/sentinel.conf
+        echo "sentinel failover-timeout mymaster 10000" >> /tmp/sentinel.conf
+        exec redis-server /tmp/sentinel.conf --sentinel
     volumes:
       - ./internal/redis/conf/docker-sentinel-26381.conf:/etc/sentinel.conf
     ports:
@@ -190,6 +197,7 @@ services:
     container_name: ticket-nginx
     volumes:
       - ./nginx/nginx-docker.conf:/etc/nginx/nginx.conf:ro
+      - ./web/dist:/usr/share/nginx/html:ro
     ports:
       - "8090:80"
     mem_limit: 256M
@@ -472,6 +480,8 @@ services:
 
 volumes:
   mysql-data:
+  redis-master-data:
+  redis-slave-data:
 
 networks:
   ticket-net:
