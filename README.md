@@ -15,6 +15,7 @@
 | 可观测 | OpenTelemetry + Jaeger 分布式链路追踪 |
 | 高可用 | go-zero 内置熔断/降载/超时 + RPC 双实例 |
 | 容器化 | Docker + Docker Compose |
+| 前端 | Vue3 + Vite + Vue Router + Pinia + Element Plus + axios |
 
 ## 项目结构
 
@@ -41,6 +42,10 @@ Ticket/
 ├── nginx/
 │   ├── nginx.conf        # 裸机 Nginx 配置
 │   └── nginx-docker.conf # Docker Nginx 配置
+├── web/                   # 前端 (Vue3 + Vite)
+│   ├── src/              # 页面 / 组件 / 接口封装
+│   ├── public/           # 静态资源 (默认封面图等)
+│   └── dist/             # 构建产物，nginx 直接托管
 ├── test/
 │   ├── bench/            # 压测
 │   ├── consistency/      # 一致性
@@ -78,9 +83,7 @@ Ticket/
                     (1M 1S 3S, 自动故障转移)
 ```
 
-
 ## 快速启动
-
 
 ```bash
 #拉取仓库
@@ -101,6 +104,24 @@ docker compose logs -f
 Docker 模式下所有依赖（MySQL、etcd、Redis Sentinel、RabbitMQ、Nginx）自动启动，无需手动安装。
 
 
+## 前端启动
+
+前端是构建好的静态文件，由 Docker 里的 Nginx 直接托管，演示/生产**无需单独起服务**。
+
+```bash
+cd web
+
+# 首次需要
+npm install     
+
+# 打包到 web/dist，nginx 已挂载该目录
+npm run build    
+
+ # nginx 直接服务 dist
+docker compose up -d nginx  
+```
+
+浏览器打开 http://localhost:8090（或同网段机器用 http://<宿主机IP>:8090）。
 
 ## 接口手册
 
